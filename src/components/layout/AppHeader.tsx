@@ -19,12 +19,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, ShieldCheckIcon, Send, AlertTriangle, X } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, ShieldCheckIcon, Send, AlertTriangle, X, Euro, JapaneseYen, IndianRupee, DollarSign, House } from 'lucide-react';
 import { useWalletStore } from '@/stores/wallet-store';
 import { useCartStore } from '@/stores/cart-store';
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
 import { useToast } from '@/hooks/use-toast';
 import type { WalletCurrency } from '@/types/wallet';
+
+const fiatDisplayOptions = [
+  { value: 'USD', label: 'USD', Icon: DollarSign, color: 'text-green-500' },
+  { value: 'EUR', label: 'EUR', Icon: Euro, color: 'text-blue-500' },
+  { value: 'JPY', label: 'JPY', Icon: JapaneseYen, color: 'text-yellow-500' },
+  { value: 'INR', label: 'INR', Icon: IndianRupee, color: 'text-yellow-600' },
+  { value: 'ARS', label: 'ARS', textSymbol: 'ARS$', color: 'text-sky-400' },
+  { value: 'CAD', label: 'CAD', Icon: DollarSign, color: 'text-orange-500' },
+  { value: 'CLP', label: 'CLP', textSymbol: 'CLP$', color: 'text-blue-400' },
+  { value: 'CNY', label: 'CNY', Icon: JapaneseYen, color: 'text-red-500' }, // Using Yen as proxy
+  { value: 'GHS', label: 'GHS', textSymbol: 'GH₵', color: 'text-green-400' },
+  { value: 'IDR', label: 'IDR', textSymbol: 'Rp', color: 'text-red-400' },
+  { value: 'KES', label: 'KES', textSymbol: 'KSh', color: 'text-black' }, // Placeholder color
+  { value: 'KRW', label: 'KRW', textSymbol: '₩', color: 'text-blue-600' },
+  { value: 'MXN', label: 'MXN', textSymbol: 'MXN$', color: 'text-green-700' },
+  { value: 'NGN', label: 'NGN', textSymbol: '₦', color: 'text-green-800' },
+  { value: 'PEN', label: 'PEN', textSymbol: 'S/.', color: 'text-red-600' },
+  { value: 'PHP', label: 'PHP', textSymbol: '₱', color: 'text-sky-500' },
+  { value: 'PLN', label: 'PLN', textSymbol: 'zł', color: 'text-red-700' },
+  { value: 'RUB', label: 'RUB', textSymbol: '₽', color: 'text-red-800' }, // No direct Ruble icon
+  { value: 'TRY', label: 'TRY', textSymbol: '₺', color: 'text-red-900' }, // No direct Lira icon
+  { value: 'VND', label: 'VND', textSymbol: '₫', color: 'text-red-400' },
+];
+
 
 const AppHeader = () => {
   const {
@@ -45,6 +71,7 @@ const AppHeader = () => {
   const [hydratedCartItemCount, setHydratedCartItemCount] = useState<number>(0);
   const [isClient, setIsClient] = useState(false);
   const [hydratedWalletDisplay, setHydratedWalletDisplay] = useState<{ iconSymbol: string, text: string, color?: string } | null>(null);
+  const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
 
   const [selectedTipCurrency, setSelectedTipCurrency] = useState<WalletCurrency | null>(null);
   const [tipAmount, setTipAmount] = useState('');
@@ -53,8 +80,14 @@ const AppHeader = () => {
 
   const [selectedCryptoToBuyId, setSelectedCryptoToBuyId] = useState<string | null>(null);
   const [buyAmountInFiat, setBuyAmountInFiat] = useState('');
-  const [buyFiatCurrency, setBuyFiatCurrency] = useState('INR'); // Defaulting to INR
+  const [buyFiatCurrency, setBuyFiatCurrency] = useState('INR');
   const [buyError, setBuyError] = useState<string | null>(null);
+
+  // Wallet Settings Tab State
+  const [hideZeroBalances, setHideZeroBalances] = useState(false);
+  const [displayCryptoInFiat, setDisplayCryptoInFiat] = useState(true);
+  const [selectedFiatDisplayCurrency, setSelectedFiatDisplayCurrency] = useState('INR');
+
 
   const totalWalletBalanceINR = getTotalPortfolioValueINR();
 
@@ -67,14 +100,13 @@ const AppHeader = () => {
   }, [walletCurrencies]);
 
 
-  // Effect for client-side flags and store subscriptions
   useEffect(() => {
     setIsClient(true);
 
     const syncCartCount = () => {
       setHydratedCartItemCount(useCartStore.getState().getCartItemCount());
     };
-    syncCartCount(); // Initial sync
+    syncCartCount();
     const unsubscribeCart = useCartStore.subscribe(syncCartCount);
 
     const syncWalletDisplay = () => {
@@ -92,25 +124,23 @@ const AppHeader = () => {
          setHydratedWalletDisplay({ iconSymbol: 'default', text: 'Wallet', color: 'text-primary-foreground' });
       }
     };
-    syncWalletDisplay(); // Initial sync
+    syncWalletDisplay();
     const unsubscribeWallet = useWalletStore.subscribe(syncWalletDisplay);
 
     return () => {
       unsubscribeCart();
       unsubscribeWallet();
     };
-  }, []); // Runs once on mount
+  }, []);
 
-  // Effect for setting default crypto to buy
   useEffect(() => {
     if (isClient && cryptoCurrenciesForPurchase.length > 0 && !selectedCryptoToBuyId) {
       const firstCryptoId = cryptoCurrenciesForPurchase[0].id;
-      // Only set if the current value is actually null/undefined
       if (selectedCryptoToBuyId !== firstCryptoId) {
            setSelectedCryptoToBuyId(firstCryptoId);
       }
     }
-  }, [isClient, cryptoCurrenciesForPurchase, selectedCryptoToBuyId, setSelectedCryptoToBuyId]);
+  }, [isClient, cryptoCurrenciesForPurchase, selectedCryptoToBuyId]);
 
 
   const filteredCurrencies = getFilteredCurrencies();
@@ -156,6 +186,7 @@ const AppHeader = () => {
     setSelectedTipCurrency(null);
     setTipAmount('');
     setRecipientPhoneNumber('');
+    setWalletDropdownOpen(false); // Close dropdown after tipping
   };
 
   const isTipButtonDisabled = !selectedTipCurrency || !tipAmount || !recipientPhoneNumber || parseFloat(tipAmount) <= 0 || (selectedTipCurrency && parseFloat(tipAmount) > selectedTipCurrency.balance);
@@ -190,6 +221,7 @@ const AppHeader = () => {
     });
 
     setBuyAmountInFiat('');
+    setWalletDropdownOpen(false); // Close dropdown after buying
   };
 
   const isBuyButtonDisabled = !selectedCryptoToBuyId || !buyAmountInFiat || parseFloat(buyAmountInFiat) <= 0;
@@ -198,10 +230,14 @@ const AppHeader = () => {
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
       <div className="flex items-center gap-2">
+         <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-primary">
+            {isClient ? <House className="h-6 w-6" /> : <div className="h-6 w-6 bg-muted rounded" />}
+            <span className="hidden sm:inline-block">WalmartChain</span>
+        </Link>
       </div>
 
       <div className="flex flex-1 justify-center">
-        <DropdownMenu>
+        <DropdownMenu open={walletDropdownOpen} onOpenChange={setWalletDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="default"
@@ -226,8 +262,20 @@ const AppHeader = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-80 md:w-96 p-0 bg-card border-border shadow-xl" align="center">
-             <div className="flex justify-between items-center p-3 border-b border-border">
-                <h3 className="text-lg font-semibold text-card-foreground">Wallet</h3>
+             <div className="flex justify-between items-center p-3 border-b border-border relative">
+                <div className="flex items-center gap-2">
+                    {isClient ? <WalletIcon className="h-5 w-5 text-card-foreground" /> : <div className="h-5 w-5 bg-muted rounded"/>}
+                    <h3 className="text-lg font-semibold text-card-foreground">Wallet</h3>
+                </div>
+                 <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 rounded-sm opacity-70 hover:opacity-100 hover:bg-secondary"
+                    onClick={() => setWalletDropdownOpen(false)}
+                    aria-label="Close wallet"
+                  >
+                    {isClient ? <X className="h-4 w-4 text-muted-foreground" /> : <div className="h-4 w-4 bg-muted rounded"/>}
+                 </Button>
             </div>
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="grid w-full grid-cols-4 bg-background/70 rounded-none p-1 h-11 border-b border-border">
@@ -276,7 +324,10 @@ const AppHeader = () => {
                             <DropdownMenuItem
                               key={currency.id}
                               className="flex justify-between items-center p-2 hover:bg-card/50 focus:bg-card/50 cursor-pointer rounded-md"
-                              onSelect={() => setSelectedCurrencyId(currency.id)}
+                              onSelect={() => {
+                                setSelectedCurrencyId(currency.id);
+                                setWalletDropdownOpen(false); // Close dropdown on selection
+                              }}
                               disabled={currency.id === selectedCurrencyId}
                             >
                               <div className="flex items-center gap-2">
@@ -518,11 +569,60 @@ const AppHeader = () => {
 
               <TabsContent value="settings-tab" className="p-4 max-h-[calc(70vh-10rem)] overflow-y-auto">
                 <Card className="bg-secondary/30 border-border shadow-none">
-                  <CardHeader className="p-4 pb-2">
-                      <CardTitle className="text-lg text-card-foreground">Wallet Settings</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 p-4">
-                    <p className="text-muted-foreground text-center text-sm">Specific wallet account settings and preferences will appear here.</p>
+                  <CardContent className="space-y-6 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="hide-zero-balances" className="font-medium text-card-foreground">Hide Zero Balances</Label>
+                        <p className="text-xs text-muted-foreground">Your zero balances won&apos;t appear in your wallet.</p>
+                      </div>
+                      <Switch
+                        id="hide-zero-balances"
+                        checked={hideZeroBalances}
+                        onCheckedChange={setHideZeroBalances}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="display-crypto-in-fiat" className="font-medium text-card-foreground">Display Crypto in Fiat</Label>
+                        <p className="text-xs text-muted-foreground">All bets & transactions will be settled in the crypto equivalent.</p>
+                      </div>
+                      <Switch
+                        id="display-crypto-in-fiat"
+                        checked={displayCryptoInFiat}
+                        onCheckedChange={setDisplayCryptoInFiat}
+                      />
+                    </div>
+                    
+                    <Separator className="bg-border"/>
+
+                    <div>
+                      <Label className="text-sm font-medium text-card-foreground mb-2 block">Fiat Display Currency</Label>
+                      <RadioGroup
+                        value={selectedFiatDisplayCurrency}
+                        onValueChange={setSelectedFiatDisplayCurrency}
+                        className="grid grid-cols-4 gap-x-2 gap-y-4"
+                      >
+                        {fiatDisplayOptions.map(({ value, label, Icon, textSymbol, color }) => (
+                          <div key={value} className="flex items-center space-x-2">
+                            <RadioGroupItem value={value} id={`fiat-${value}`} />
+                            <Label htmlFor={`fiat-${value}`} className="flex items-center gap-1.5 text-xs cursor-pointer text-card-foreground">
+                              {label}
+                              {Icon ? <Icon className={`h-3 w-3 ${color}`} /> : <span className={`text-xs font-mono ${color}`}>{textSymbol}</span>}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                    
+                    <Separator className="my-4 bg-border"/>
+                    <div className="flex flex-col items-center text-center p-2">
+                        <ShieldCheckIcon className="h-7 w-7 text-accent mb-1.5" />
+                        <h3 className="text-sm font-medium text-card-foreground">Improve your account security</h3>
+                        <p className="text-xs text-muted-foreground mb-2.5">Enable Two-Factor Authentication.</p>
+                        <Button variant="outline" size="sm" className="w-full text-xs h-8" onClick={handleEnable2FA}>Enable 2FA</Button>
+                    </div>
+
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -575,4 +675,3 @@ const AppHeader = () => {
 };
 
 export default AppHeader;
-
