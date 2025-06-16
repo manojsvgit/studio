@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, AlertTriangle, Info } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Info, CheckCircle2, ShoppingBag } from 'lucide-react';
 
 const MOCK_NETWORKS = [
   { id: 'eth', name: 'Ethereum (ERC20)' },
@@ -26,6 +26,8 @@ const MOCK_NETWORKS = [
 
 const MOCK_CRYPTO_TRANSACTION_FEE_USD = 1.50; // Example fee in USD
 const USD_TO_INR_RATE = 83; // Example conversion rate
+
+type PaymentStatus = 'idle' | 'processing' | 'success' | 'failed';
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -39,6 +41,7 @@ export default function PaymentPage() {
   
   const [selectedCrypto, setSelectedCrypto] = useState<WalletCurrency | null>(null);
   const [selectedNetwork, setSelectedNetwork] = useState<string>(MOCK_NETWORKS[0]?.id || '');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
   
   const availableCryptoCurrencies = walletCurrencies.filter(c => c.balance > 0 && c.symbol !== 'INR');
 
@@ -47,7 +50,7 @@ export default function PaymentPage() {
     const total = getCartTotal();
     setCartTotalUSD(total);
 
-    if (total === 0 && cartItems.length === 0) {
+    if (paymentStatus !== 'success' && total === 0 && cartItems.length === 0) {
       toast({
         title: 'Empty Cart',
         description: 'Your cart is empty. Redirecting to products page.',
@@ -58,23 +61,27 @@ export default function PaymentPage() {
     
     if (availableCryptoCurrencies.length > 0 && !selectedCrypto) {
       const defaultSelected = availableCryptoCurrencies.find(c => c.id === defaultWalletCurrencyId && c.symbol !== 'INR') || 
-                              availableCryptoCurrencies.find(c => c.symbol !== 'INR'); // Fallback to first non-INR crypto
+                              availableCryptoCurrencies.find(c => c.symbol !== 'INR');
       if (defaultSelected) {
         setSelectedCrypto(defaultSelected);
       }
     }
 
-  }, [getCartTotal, cartItems, router, toast, availableCryptoCurrencies, defaultWalletCurrencyId, selectedCrypto]);
+  }, [getCartTotal, cartItems, router, toast, availableCryptoCurrencies, defaultWalletCurrencyId, selectedCrypto, paymentStatus]);
 
   const handleCryptoPay = () => {
     if (!selectedCrypto) {
       toast({ title: 'Error', description: 'Please select a cryptocurrency.', variant: 'destructive' });
+      setPaymentStatus('failed');
       return;
     }
     if (!selectedNetwork) {
       toast({ title: 'Error', description: 'Please select a network.', variant: 'destructive' });
+      setPaymentStatus('failed');
       return;
     }
+    
+    setPaymentStatus('processing');
 
     const amountInSelectedCrypto = cartTotalUSD / (selectedCrypto.priceInINR / USD_TO_INR_RATE);
     const transactionFeeInSelectedCrypto = MOCK_CRYPTO_TRANSACTION_FEE_USD / (selectedCrypto.priceInINR / USD_TO_INR_RATE);
@@ -86,20 +93,24 @@ export default function PaymentPage() {
         description: `You do not have enough ${selectedCrypto.symbol} to complete this transaction. Required: ${totalPayableCrypto.toFixed(6)} ${selectedCrypto.symbol}`,
         variant: 'destructive',
       });
+      setPaymentStatus('failed');
       return;
     }
 
-    // Actual payment processing logic
     deductCurrencyBalance(selectedCrypto.id, totalPayableCrypto);
     clearCart();
     
     toast({
       title: 'Payment Successful!',
-      description: `Paid ${totalPayableCrypto.toFixed(6)} ${selectedCrypto.symbol}. Your order has been placed. Redirecting...`,
+      description: `Paid ${totalPayableCrypto.toFixed(6)} ${selectedCrypto.symbol}. Your order has been placed.`,
     });
+    setPaymentStatus('success');
     
-    // router.push('/orders/success'); // Uncomment when success page is ready
-     setTimeout(() => router.push('/products'), 2000); 
+    setTimeout(() => {
+      if (paymentStatus === 'success') { // Ensure status hasn't changed (e.g. by user navigating away)
+          router.push('/products');
+      }
+    }, 4000); // Increased delay to show success message
   };
 
   const handleLocalPay = () => {
@@ -109,12 +120,35 @@ export default function PaymentPage() {
     });
   };
 
-  if (!isClient || (cartTotalUSD === 0 && cartItems.length > 0) ) {
+  if (!isClient || (cartTotalUSD === 0 && cartItems.length > 0 && paymentStatus !== 'success') ) {
     return (
         <div className="flex flex-col items-center justify-center h-screen">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             <p className="mt-4 text-muted-foreground">Loading payment details...</p>
         </div>
+    );
+  }
+
+  if (paymentStatus === 'success') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] p-4">
+        <Card className="w-full max-w-md shadow-xl bg-card text-card-foreground animate-in fade-in zoom-in-95 duration-500">
+          <CardContent className="flex flex-col items-center justify-center p-8 space-y-6">
+            <CheckCircle2 className="w-24 h-24 text-success-green animate-pulse" />
+            <h1 className="text-3xl font-bold text-success-green">Payment Successful!</h1>
+            <p className="text-center text-muted-foreground">
+              Your order has been processed. Thank you for shopping with WalmartChain.
+            </p>
+            <Button
+              size="lg"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+              onClick={() => router.push('/products')}
+            >
+              <ShoppingBag className="mr-2 h-5 w-5" /> Continue Shopping
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
   
@@ -150,6 +184,7 @@ export default function PaymentPage() {
                     onValueChange={(value) => {
                       const newSelectedCrypto = availableCryptoCurrencies.find(c => c.id === value);
                       setSelectedCrypto(newSelectedCrypto || null);
+                      setPaymentStatus('idle'); // Reset status if currency changes
                     }}
                   >
                     <SelectTrigger id="crypto-currency" className="w-full mt-1 bg-input border-border">
@@ -257,20 +292,29 @@ export default function PaymentPage() {
           </Tabs>
         </CardContent>
         <CardFooter className="mt-6 p-6 border-t border-border">
-          {/* The button will depend on the active tab. */}
-            <Tabs defaultValue="crypto" className="w-full"> {/* Outer Tabs to control button visibility based on selected payment method */}
+            <Tabs defaultValue="crypto" className="w-full">
               <TabsContent value="crypto" className="mt-0">
                   <Button 
                     onClick={handleCryptoPay} 
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
                     size="lg" 
-                    disabled={!selectedCrypto || availableCryptoCurrencies.length === 0 || (selectedCrypto && selectedCrypto.balance < totalPayableCrypto)}
+                    disabled={
+                        !selectedCrypto || 
+                        availableCryptoCurrencies.length === 0 || 
+                        (selectedCrypto && selectedCrypto.balance < totalPayableCrypto) ||
+                        paymentStatus === 'processing'
+                    }
                   >
-                      Pay with {selectedCrypto?.symbol || 'Crypto'}
+                      {paymentStatus === 'processing' ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground mr-2"></div>
+                          Processing...
+                        </>
+                      ) : `Pay with ${selectedCrypto?.symbol || 'Crypto'}` }
                   </Button>
               </TabsContent>
               <TabsContent value="local" className="mt-0">
-                  <Button onClick={handleLocalPay} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" size="lg">
+                  <Button onClick={handleLocalPay} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" size="lg" disabled={paymentStatus === 'processing'}>
                       Pay with INR
                   </Button>
               </TabsContent>
