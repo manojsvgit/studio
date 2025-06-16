@@ -19,7 +19,9 @@ import {
 interface WalletState {
   currencies: WalletCurrency[];
   searchTerm: string;
+  selectedCurrencyId: string; // ID of the currency displayed in the header button
   setSearchTerm: (term: string) => void;
+  setSelectedCurrencyId: (currencyId: string) => void;
   getFilteredCurrencies: () => WalletCurrency[];
   getTotalPortfolioValueINR: () => number;
 }
@@ -40,7 +42,9 @@ const initialCurrencies: WalletCurrency[] = [
 export const useWalletStore = create<WalletState>((set, get) => ({
   currencies: initialCurrencies,
   searchTerm: '',
+  selectedCurrencyId: initialCurrencies.find(c => c.symbol === 'INR')?.id || initialCurrencies[0]?.id || '', // Default to INR or first currency
   setSearchTerm: (term) => set({ searchTerm: term }),
+  setSelectedCurrencyId: (currencyId) => set({ selectedCurrencyId: currencyId }),
   getFilteredCurrencies: () => {
     const { currencies, searchTerm } = get();
     if (!searchTerm) {

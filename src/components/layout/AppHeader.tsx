@@ -2,7 +2,6 @@
 'use client';
 
 import Link from 'next/link';
-// Removed SidebarTrigger
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,20 +18,45 @@ import { useWalletStore } from '@/stores/wallet-store';
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
 
 const AppHeader = () => {
-  const { searchTerm, setSearchTerm, getFilteredCurrencies } = useWalletStore();
+  const { 
+    searchTerm, 
+    setSearchTerm, 
+    getFilteredCurrencies, 
+    currencies, 
+    selectedCurrencyId, 
+    setSelectedCurrencyId 
+  } = useWalletStore();
+  
   const filteredCurrencies = getFilteredCurrencies();
+  const activeCurrency = currencies.find(c => c.id === selectedCurrencyId) || 
+                         currencies.find(c => c.symbol === 'INR') || 
+                         currencies[0];
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
-      <div className="flex items-center gap-2"> {/* Left items - Was SidebarTrigger placeholder */}
-        {/* Placeholder for potential future left-aligned items if needed */}
+      <div className="flex items-center gap-2"> {/* Left items - Placeholder */}
       </div>
 
       <div className="flex flex-1 justify-center"> {/* Center item: Wallet Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="default" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Wallet className="mr-2 h-4 w-4" /> Wallet <ChevronDown className="ml-2 h-4 w-4" />
+            <Button 
+              variant="default" 
+              className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[160px] flex items-center justify-between px-3"
+            >
+              <div className="flex items-center overflow-hidden">
+                {activeCurrency ? (
+                  <>
+                    <CryptoCurrencyIcon symbol={activeCurrency.symbol} className={`mr-2 h-5 w-5 flex-shrink-0 ${activeCurrency.color || 'text-primary-foreground'}`} />
+                    <span className="truncate text-sm">
+                      ₹{(activeCurrency.balance * activeCurrency.priceInINR).toFixed(2)}
+                    </span>
+                  </>
+                ) : (
+                  <Wallet className="mr-2 h-4 w-4" /> /* Fallback */
+                )}
+              </div>
+              <ChevronDown className="ml-2 h-4 w-4 opacity-80 flex-shrink-0" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-64 md:w-72 p-2 bg-card border-border shadow-xl" align="center">
@@ -54,7 +78,11 @@ const AppHeader = () => {
                  <p className="p-4 text-sm text-center text-muted-foreground">No currencies found.</p>
               ) : (
                 filteredCurrencies.map((currency) => (
-                  <DropdownMenuItem key={currency.id} className="flex justify-between items-center p-2 hover:bg-secondary cursor-pointer focus:bg-secondary">
+                  <DropdownMenuItem 
+                    key={currency.id} 
+                    className="flex justify-between items-center p-2 hover:bg-secondary cursor-pointer focus:bg-secondary"
+                    onSelect={() => setSelectedCurrencyId(currency.id)}
+                  >
                     <div className="flex items-center gap-2">
                       <CryptoCurrencyIcon symbol={currency.symbol} className={`h-5 w-5 ${currency.color || 'text-foreground'}`} />
                       <span className="font-medium text-card-foreground">{currency.symbol}</span>
