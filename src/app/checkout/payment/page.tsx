@@ -5,7 +5,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/stores/cart-store';
 import { useWalletStore } from '@/stores/wallet-store';
+import { useOrderStore } from '@/stores/order-store';
 import type { WalletCurrency } from '@/types/wallet';
+import type { Order } from '@/types/order';
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -35,6 +37,7 @@ export default function PaymentPage() {
   
   const { getCartTotal, items: cartItems, clearCart } = useCartStore();
   const { currencies: walletCurrencies, selectedCurrencyId: defaultWalletCurrencyId, deductCurrencyBalance } = useWalletStore();
+  const { addOrder } = useOrderStore();
 
   const [isClient, setIsClient] = useState(false);
   const [cartTotalUSD, setCartTotalUSD] = useState(0);
@@ -98,6 +101,28 @@ export default function PaymentPage() {
     }
 
     deductCurrencyBalance(selectedCrypto.id, totalPayableCrypto);
+    
+    const newOrder: Order = {
+      id: `WM-${Date.now()}`,
+      items: cartItems.map(item => ({
+        productId: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        image: item.images[0],
+        dataAiHint: item.dataAiHint,
+      })),
+      totalAmountUSD: cartTotalUSD,
+      paymentMethod: 'Crypto',
+      cryptoUsed: `${selectedCrypto.name} (${selectedCrypto.symbol})`,
+      amountInCrypto: totalPayableCrypto,
+      cryptoSymbol: selectedCrypto.symbol,
+      purchaseDate: new Date().toISOString(),
+      status: 'Processing',
+      transactionId: `mock_tx_${Date.now()}`
+    };
+    addOrder(newOrder);
+    
     clearCart();
     
     toast({
@@ -107,10 +132,13 @@ export default function PaymentPage() {
     setPaymentStatus('success');
     
     setTimeout(() => {
-      if (paymentStatus === 'success') { // Ensure status hasn't changed (e.g. by user navigating away)
-          router.push('/products');
+      // Check status again in case user navigated away or something else changed status
+      if (useCartStore.getState().items.length === 0 && useOrderStore.getState().orders.find(o => o.id === newOrder.id) ) {
+          router.push('/orders'); // Redirect to orders page
+      } else {
+          router.push('/products'); // Fallback to products if something is off
       }
-    }, 4000); // Increased delay to show success message
+    }, 4000); 
   };
 
   const handleLocalPay = () => {
@@ -134,17 +162,17 @@ export default function PaymentPage() {
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] p-4">
         <Card className="w-full max-w-md shadow-xl bg-card text-card-foreground animate-in fade-in zoom-in-95 duration-500">
           <CardContent className="flex flex-col items-center justify-center p-8 space-y-6">
-            <CheckCircle2 className="w-24 h-24 text-success-green animate-pulse" />
-            <h1 className="text-3xl font-bold text-success-green">Payment Successful!</h1>
+            <CheckCircle2 className="w-24 h-24 text-green-500 animate-pulse" />
+            <h1 className="text-3xl font-bold text-green-500">Payment Successful!</h1>
             <p className="text-center text-muted-foreground">
               Your order has been processed. Thank you for shopping with WalmartChain.
             </p>
             <Button
               size="lg"
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-              onClick={() => router.push('/products')}
+              onClick={() => router.push('/orders')}
             >
-              <ShoppingBag className="mr-2 h-5 w-5" /> Continue Shopping
+              <ShoppingBag className="mr-2 h-5 w-5" /> View Orders
             </Button>
           </CardContent>
         </Card>
@@ -184,7 +212,7 @@ export default function PaymentPage() {
                     onValueChange={(value) => {
                       const newSelectedCrypto = availableCryptoCurrencies.find(c => c.id === value);
                       setSelectedCrypto(newSelectedCrypto || null);
-                      setPaymentStatus('idle'); // Reset status if currency changes
+                      setPaymentStatus('idle'); 
                     }}
                   >
                     <SelectTrigger id="crypto-currency" className="w-full mt-1 bg-input border-border">
