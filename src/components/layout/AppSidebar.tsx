@@ -9,13 +9,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { HomeIcon, ShoppingBag, Wallet, Package } from 'lucide-react'; // Removed ShoppingCartIcon
+import { HomeIcon, ShoppingBag, Package } from 'lucide-react'; // Removed Wallet
 
 const AppSidebar = () => {
   const menuItems = [
     { href: '/', label: 'Home', icon: HomeIcon, tooltip: 'Dashboard' },
     { href: '/products', label: 'Products', icon: ShoppingBag, tooltip: 'Browse Products' },
-    { href: '/wallet', label: 'Wallet', icon: Wallet, tooltip: 'Crypto Wallet' },
     { href: '/orders', label: 'Orders', icon: Package, tooltip: 'Track Orders' },
   ];
 
