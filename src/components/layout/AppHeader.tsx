@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, ShieldCheckIcon, Send, AlertTriangle } from 'lucide-react';
+import { Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, ShieldCheckIcon, Send, AlertTriangle, X } from 'lucide-react';
 import { useWalletStore } from '@/stores/wallet-store';
 import { useCartStore } from '@/stores/cart-store';
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
@@ -36,6 +36,7 @@ const AppHeader = () => {
     currencies: walletCurrencies,
     getTotalPortfolioValueINR,
     deductCurrencyBalance,
+    addCurrencyBalance,
   } = useWalletStore();
   
   const { getCartItemCount } = useCartStore();
@@ -45,14 +46,20 @@ const AppHeader = () => {
   const [isClient, setIsClient] = useState(false);
   const [hydratedWalletDisplay, setHydratedWalletDisplay] = useState<{ iconSymbol: string, text: string, color?: string } | null>(null);
   
-  // Tip Tab State
   const [selectedTipCurrency, setSelectedTipCurrency] = useState<WalletCurrency | null>(null);
   const [tipAmount, setTipAmount] = useState('');
   const [recipientPhoneNumber, setRecipientPhoneNumber] = useState('');
   const [tipError, setTipError] = useState<string | null>(null);
 
+  const [selectedCryptoToBuyId, setSelectedCryptoToBuyId] = useState<string | null>(null);
+  const [buyAmountInFiat, setBuyAmountInFiat] = useState('');
+  const [buyFiatCurrency, setBuyFiatCurrency] = useState('INR'); // Defaulting to INR
+  const [buyError, setBuyError] = useState<string | null>(null);
+
+
   const totalWalletBalanceINR = getTotalPortfolioValueINR();
   const availableCryptoCurrenciesForTip = walletCurrencies.filter(c => c.balance > 0 && c.symbol !== 'INR');
+  const cryptoCurrenciesForPurchase = walletCurrencies.filter(c => c.symbol !== 'INR');
 
 
   useEffect(() => {
@@ -83,11 +90,17 @@ const AppHeader = () => {
     syncWalletDisplay(); 
     const unsubscribeWallet = useWalletStore.subscribe(syncWalletDisplay);
 
+    // Set default crypto to buy if not already selected
+    if (cryptoCurrenciesForPurchase.length > 0 && !selectedCryptoToBuyId) {
+        setSelectedCryptoToBuyId(cryptoCurrenciesForPurchase[0].id);
+    }
+
+
     return () => {
       unsubscribeCart();
       unsubscribeWallet();
     };
-  }, []); 
+  }, [cryptoCurrenciesForPurchase, selectedCryptoToBuyId]); 
 
   const filteredCurrencies = getFilteredCurrencies();
 
@@ -97,9 +110,9 @@ const AppHeader = () => {
 
   const handleTipAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-     if (/^\d*\.?\d*$/.test(value)) { // Allow only numbers and a single decimal point
+     if (/^\d*\.?\d*$/.test(value)) { 
       setTipAmount(value);
-      setTipError(null); // Clear error when user types
+      setTipError(null); 
     }
   };
 
@@ -129,13 +142,49 @@ const AppHeader = () => {
       description: `Tip of ${amount.toFixed(selectedTipCurrency.symbol === 'BTC' || selectedTipCurrency.symbol === 'ETH' ? 8 : 4)} ${selectedTipCurrency.symbol} sent to ${recipientPhoneNumber} successfully.`,
     });
     
-    // Reset form
     setSelectedTipCurrency(null);
     setTipAmount('');
     setRecipientPhoneNumber('');
   };
 
   const isTipButtonDisabled = !selectedTipCurrency || !tipAmount || !recipientPhoneNumber || parseFloat(tipAmount) <= 0 || (selectedTipCurrency && parseFloat(tipAmount) > selectedTipCurrency.balance);
+
+  const handleBuyAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^\d*\.?\d*$/.test(value)) {
+      setBuyAmountInFiat(value);
+      setBuyError(null);
+    }
+  };
+
+  const handleBuyCrypto = () => {
+    setBuyError(null);
+    const cryptoToBuy = walletCurrencies.find(c => c.id === selectedCryptoToBuyId);
+    if (!cryptoToBuy) {
+      setBuyError("Please select a cryptocurrency to buy.");
+      return;
+    }
+    const amountFiat = parseFloat(buyAmountInFiat);
+    if (isNaN(amountFiat) || amountFiat <= 0) {
+      setBuyError("Please enter a valid positive amount to spend.");
+      return;
+    }
+
+    // Assuming INR is the only fiat currency for now
+    // For mock purposes, let's say user's INR balance is sufficient (not checking actual INR balance)
+    const cryptoAmountBought = amountFiat / cryptoToBuy.priceInINR;
+    addCurrencyBalance(cryptoToBuy.id, cryptoAmountBought);
+
+    toast({
+      title: "Purchase Successful!",
+      description: `Successfully bought ${cryptoAmountBought.toFixed(cryptoToBuy.symbol === 'BTC' || cryptoToBuy.symbol === 'ETH' ? 8 : 6)} ${cryptoToBuy.symbol}.`,
+    });
+
+    setBuyAmountInFiat('');
+    // Optionally reset selectedCryptoToBuyId or keep it for next purchase
+  };
+  
+  const isBuyButtonDisabled = !selectedCryptoToBuyId || !buyAmountInFiat || parseFloat(buyAmountInFiat) <= 0;
 
 
   return (
@@ -169,15 +218,19 @@ const AppHeader = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-80 md:w-96 p-0 bg-card border-border shadow-xl" align="center">
+             <div className="flex justify-between items-center p-3 border-b border-border">
+                <h3 className="text-lg font-semibold text-card-foreground">Wallet</h3>
+                {/* Placeholder for X close button if needed, not typically in DropdownMenu */}
+            </div>
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 bg-background/70 rounded-t-md rounded-b-none p-1 h-11">
-                <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
-                <TabsTrigger value="buy-crypto" className="text-xs">Buy Crypto</TabsTrigger>
-                <TabsTrigger value="tip" className="text-xs">Tip</TabsTrigger>
-                <TabsTrigger value="settings-tab" className="text-xs">Settings</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 bg-background/70 rounded-none p-1 h-11 border-b border-border">
+                <TabsTrigger value="overview" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Overview</TabsTrigger>
+                <TabsTrigger value="buy-crypto" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Buy Crypto</TabsTrigger>
+                <TabsTrigger value="tip" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Tip</TabsTrigger>
+                <TabsTrigger value="settings-tab" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Settings</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="overview" className="p-3 max-h-[70vh] overflow-y-auto">
+              <TabsContent value="overview" className="p-3 max-h-[calc(70vh-5rem)] overflow-y-auto">
                 <div className="space-y-4">
                   <Card className="bg-secondary/30 border-border">
                     <CardHeader className="p-3">
@@ -261,15 +314,94 @@ const AppHeader = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="buy-crypto" className="p-3">
-                <Card className="bg-secondary/30 border-border">
-                  <CardContent className="pt-6">
-                    <p className="text-muted-foreground p-4 text-center text-sm">Buy Crypto functionality coming soon.</p>
-                  </CardContent>
+              <TabsContent value="buy-crypto" className="p-4 max-h-[calc(70vh-5rem)] overflow-y-auto">
+                <Card className="bg-secondary/30 border-border shadow-none">
+                    <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-lg text-card-foreground">Buy Crypto</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-4">
+                        <div>
+                            <Label htmlFor="buy-crypto-select" className="text-xs font-medium text-muted-foreground">Buy</Label>
+                            <Select
+                                value={selectedCryptoToBuyId || ''}
+                                onValueChange={(value) => {
+                                    setSelectedCryptoToBuyId(value);
+                                    setBuyError(null);
+                                }}
+                            >
+                                <SelectTrigger id="buy-crypto-select" className="w-full mt-1 bg-input border-border h-11">
+                                    {selectedCryptoToBuyId && walletCurrencies.find(c => c.id === selectedCryptoToBuyId) ? (
+                                        <div className="flex items-center gap-2">
+                                            <CryptoCurrencyIcon symbol={walletCurrencies.find(c => c.id === selectedCryptoToBuyId)!.symbol} className={`h-5 w-5 ${walletCurrencies.find(c => c.id === selectedCryptoToBuyId)!.color || 'text-foreground'}`} />
+                                            <span>{walletCurrencies.find(c => c.id === selectedCryptoToBuyId)!.name} ({walletCurrencies.find(c => c.id === selectedCryptoToBuyId)!.symbol})</span>
+                                        </div>
+                                    ) : (
+                                        <SelectValue placeholder="Select crypto to buy" />
+                                    )}
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover border-border">
+                                    {cryptoCurrenciesForPurchase.map(currency => (
+                                        <SelectItem key={currency.id} value={currency.id} className="hover:bg-secondary focus:bg-secondary">
+                                            <div className="flex items-center gap-2">
+                                                <CryptoCurrencyIcon symbol={currency.symbol} className={`h-5 w-5 ${currency.color || 'text-foreground'}`} />
+                                                <div>{currency.name} ({currency.symbol})</div>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="buy-amount-fiat" className="text-xs font-medium text-muted-foreground">Amount <span className="text-destructive">*</span></Label>
+                            <div className="relative mt-1 flex items-center">
+                                <Input
+                                    id="buy-amount-fiat"
+                                    type="text"
+                                    value={buyAmountInFiat}
+                                    onChange={handleBuyAmountChange}
+                                    placeholder="0"
+                                    className="bg-input border-border h-11 flex-grow rounded-r-none"
+                                />
+                                <Select value={buyFiatCurrency} onValueChange={setBuyFiatCurrency}>
+                                    <SelectTrigger className="w-[90px] bg-input border-border border-l-0 h-11 rounded-l-none">
+                                        <SelectValue/>
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-popover border-border">
+                                        <SelectItem value="INR">
+                                            <div className="flex items-center gap-1">
+                                                <CryptoCurrencyIcon symbol="INR" className="h-4 w-4 text-green-500"/> INR
+                                            </div>
+                                        </SelectItem>
+                                        {/* Add other fiat currencies here if needed */}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        {buyError && (
+                            <div className="flex items-center text-xs text-destructive p-2 bg-destructive/10 rounded-md">
+                                <AlertTriangle className="h-4 w-4 mr-2 shrink-0" />
+                                {buyError}
+                            </div>
+                        )}
+                        <Button
+                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 mt-2"
+                            onClick={handleBuyCrypto}
+                            disabled={isBuyButtonDisabled}
+                        >
+                            Buy
+                        </Button>
+                        <Separator className="my-4 bg-border"/>
+                        <div className="flex flex-col items-center text-center p-2">
+                            <ShieldCheckIcon className="h-7 w-7 text-accent mb-1.5" />
+                            <h3 className="text-sm font-medium text-card-foreground">Improve your account security</h3>
+                            <p className="text-xs text-muted-foreground mb-2.5">Enable Two-Factor Authentication.</p>
+                            <Button variant="outline" size="sm" className="w-full text-xs h-8" onClick={handleEnable2FA}>Enable 2FA</Button>
+                        </div>
+                    </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="tip" className="p-4 max-h-[70vh] overflow-y-auto">
+              <TabsContent value="tip" className="p-4 max-h-[calc(70vh-5rem)] overflow-y-auto">
                 <Card className="bg-secondary/30 border-border shadow-none">
                   <CardHeader className="p-4 pb-2">
                     <CardTitle className="text-lg text-card-foreground">Send a Tip</CardTitle>
@@ -343,12 +475,6 @@ const AppHeader = () => {
                           </span>
                         </div>
                       </div>
-                      {/* Placeholder for Min/INR buttons if needed later, matching image style
-                      <div className="flex items-center gap-2 mt-1 text-xs">
-                        <Button variant="outline" size="sm" className="h-6 px-2 text-xs border-primary text-primary hover:bg-primary/10">₹</Button>
-                        <Button variant="outline" size="sm" className="h-6 px-2 text-xs border-primary text-primary hover:bg-primary/10">Min</Button>
-                      </div>
-                      */}
                     </div>
 
                     <div>
@@ -359,7 +485,7 @@ const AppHeader = () => {
                         value={recipientPhoneNumber}
                         onChange={(e) => {
                           setRecipientPhoneNumber(e.target.value);
-                          setTipError(null); // Clear error
+                          setTipError(null); 
                         }}
                         placeholder="Enter recipient's phone number"
                         className="mt-1 bg-input border-border h-11"
@@ -384,11 +510,14 @@ const AppHeader = () => {
                 </Card>
               </TabsContent>
 
-
-              <TabsContent value="settings-tab" className="p-3">
-                <Card className="bg-secondary/30 border-border">
-                  <CardContent className="pt-6">
-                    <p className="text-muted-foreground p-4 text-center text-sm">Specific wallet account settings will appear here.</p>
+              <TabsContent value="settings-tab" className="p-4 max-h-[calc(70vh-5rem)] overflow-y-auto">
+                <Card className="bg-secondary/30 border-border shadow-none">
+                  <CardHeader className="p-4 pb-2">
+                      <CardTitle className="text-lg text-card-foreground">Wallet Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4 p-4">
+                    <p className="text-muted-foreground text-center text-sm">Specific wallet account settings and preferences will appear here.</p>
+                     {/* Example: Add wallet-specific settings like preferred display currency, notification settings for wallet activity, etc. */}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -441,6 +570,3 @@ const AppHeader = () => {
 };
 
 export default AppHeader;
-
-
-    
