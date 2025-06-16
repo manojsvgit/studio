@@ -5,23 +5,36 @@ import Image from 'next/image';
 import type { Product } from '@/types/product';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCartIcon, Trash2Icon } from 'lucide-react'; // Added Trash2Icon
+import { ShoppingCartIcon, Trash2Icon } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from 'react';
 
 interface ProductCardProps {
   product: Product;
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  // Destructure actions and items for checking if product is in cart
   const { addToCart, removeFromCart, items } = useCartStore();
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
+  const [hydratedIsInCart, setHydratedIsInCart] = useState(false);
 
-  const isInCart = items.some(item => item.id === product.id);
+  useEffect(() => {
+    setIsClient(true);
+    // Sync cart state after client mount
+    const unsub = useCartStore.subscribe(
+      (state) => setHydratedIsInCart(state.items.some(item => item.id === product.id)),
+      (state) => state.items
+    );
+    // Initial sync
+    setHydratedIsInCart(items.some(item => item.id === product.id));
+    return () => unsub();
+  }, [items, product.id]);
+
 
   const handleToggleCart = () => {
-    if (isInCart) {
+    if (hydratedIsInCart) {
       removeFromCart(product.id);
       toast({
         title: "Removed from cart",
@@ -47,6 +60,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           height={300}
           className="object-cover w-full h-48"
           data-ai-hint={product.dataAiHint || 'product image'}
+          priority={product.id === '1' || product.id === '2'} // Prioritize first few images if needed
         />
       </CardHeader>
       <CardContent className="p-4 flex-grow">
@@ -57,21 +71,29 @@ export default function ProductCard({ product }: ProductCardProps) {
         <p className="text-xl font-bold text-accent mb-2">${product.price.toFixed(2)}</p>
       </CardContent>
       <CardFooter className="p-4 border-t border-border">
-        <Button
-          className="w-full"
-          variant={isInCart ? "destructive" : "default"}
-          onClick={handleToggleCart}
-        >
-          {isInCart ? (
-            <>
-              <Trash2Icon className="mr-2 h-4 w-4" /> Remove from Cart
-            </>
-          ) : (
-            <>
-              <ShoppingCartIcon className="mr-2 h-4 w-4" /> Add to Cart
-            </>
-          )}
-        </Button>
+        {isClient ? (
+          <Button
+            className="w-full"
+            variant={hydratedIsInCart ? "destructive" : "default"}
+            onClick={handleToggleCart}
+          >
+            {hydratedIsInCart ? (
+              <>
+                <Trash2Icon className="mr-2 h-4 w-4" /> Remove from Cart
+              </>
+            ) : (
+              <>
+                <ShoppingCartIcon className="mr-2 h-4 w-4" /> Add to Cart
+              </>
+            )}
+          </Button>
+        ) : (
+          // Placeholder button before client-side hydration
+          <Button className="w-full" variant="default" disabled>
+            <div className="mr-2 h-4 w-4 bg-muted rounded animate-pulse" /> {/* Icon placeholder */}
+             Loading...
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
