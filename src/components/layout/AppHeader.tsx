@@ -24,7 +24,7 @@ const AppHeader = () => {
     searchTerm, 
     setSearchTerm, 
     getFilteredCurrencies, 
-  } = useWalletStore(); // Removed currencies and selectedCurrencyId direct destructure
+  } = useWalletStore();
   
   const { getCartItemCount } = useCartStore();
   const [hydratedCartItemCount, setHydratedCartItemCount] = useState<number>(0);
@@ -52,22 +52,20 @@ const AppHeader = () => {
           color: currentActiveCurrency.color,
         });
       } else {
-        // Fallback if no currency is available (e.g. initial empty store)
          setHydratedWalletDisplay({ iconSymbol: 'default', text: 'Wallet', color: 'text-primary-foreground' });
       }
     };
 
-    syncWalletDisplay(); // Initial sync after client mount
+    syncWalletDisplay(); 
     const unsubscribeWallet = useWalletStore.subscribe(syncWalletDisplay);
 
     return () => {
       unsubscribeCart();
       unsubscribeWallet();
     };
-  }, []); // Empty dependency array, subscriptions handle updates
+  }, []); 
 
   const filteredCurrencies = getFilteredCurrencies();
-  // selectedCurrencyId for DropdownMenuItem onSelect is handled by store action
   const { setSelectedCurrencyId } = useWalletStore.getState();
 
 
@@ -93,12 +91,12 @@ const AppHeader = () => {
                   </>
                 ) : (
                   <>
-                    <Wallet className="mr-2 h-4 w-4" />
+                    {isClient ? <Wallet className="mr-2 h-4 w-4" /> : <div className="mr-2 h-4 w-4" /> }
                     <span className="truncate text-sm">Wallet</span>
                   </>
                 )}
               </div>
-              <ChevronDown className="ml-2 h-4 w-4 opacity-80 flex-shrink-0" />
+              {isClient ? <ChevronDown className="ml-2 h-4 w-4 opacity-80 flex-shrink-0" /> : <div className="ml-2 h-4 w-4 opacity-80 flex-shrink-0" /> }
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-64 md:w-72 p-2 bg-card border-border shadow-xl" align="center">
@@ -139,7 +137,7 @@ const AppHeader = () => {
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem asChild className="p-2 hover:bg-secondary cursor-pointer focus:bg-secondary">
               <Link href="/wallet/settings" className="flex items-center w-full">
-                <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                {isClient ? <Settings className="mr-2 h-4 w-4 text-muted-foreground" /> : <div className="mr-2 h-4 w-4"/> }
                 <span className="text-sm text-card-foreground">Wallet Settings</span>
               </Link>
             </DropdownMenuItem>
@@ -149,11 +147,11 @@ const AppHeader = () => {
 
       <div className="flex items-center gap-2"> 
         <Button variant="ghost" size="icon" aria-label="Notifications" className="text-foreground hover:bg-accent hover:text-accent-foreground">
-          <Bell className="h-5 w-5" />
+          {isClient ? <Bell className="h-5 w-5" /> : <div className="h-5 w-5" /> }
         </Button>
         <Button asChild variant="ghost" size="icon" aria-label="Shopping Cart" className="text-foreground hover:bg-accent hover:text-accent-foreground relative">
           <Link href="/cart">
-            <ShoppingCartIcon className="h-5 w-5" />
+            {isClient ? <ShoppingCartIcon className="h-5 w-5" /> : <div className="h-5 w-5" /> }
             {isClient && hydratedCartItemCount > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
                 {hydratedCartItemCount}
@@ -164,7 +162,7 @@ const AppHeader = () => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="User Profile" className="text-foreground hover:bg-accent hover:text-accent-foreground">
-              <UserCircle className="h-6 w-6" />
+              {isClient ? <UserCircle className="h-6 w-6" /> : <div className="h-6 w-6" /> }
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56 bg-card border-border shadow-xl" align="end">
@@ -172,14 +170,14 @@ const AppHeader = () => {
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem asChild className="hover:bg-secondary cursor-pointer focus:bg-secondary">
               <Link href="/settings" className="flex items-center w-full">
-                <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                {isClient ? <Settings className="mr-2 h-4 w-4 text-muted-foreground" /> : <div className="mr-2 h-4 w-4" />}
                 <span className="text-sm text-card-foreground">Settings</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border"/>
             <DropdownMenuItem asChild className="hover:bg-secondary cursor-pointer focus:bg-secondary">
               <Link href="/logout" className="flex items-center w-full">
-                <LogOut className="mr-2 h-4 w-4 text-muted-foreground" />
+                {isClient ? <LogOut className="mr-2 h-4 w-4 text-muted-foreground" /> : <div className="mr-2 h-4 w-4" />}
                 <span className="text-sm text-card-foreground">Logout</span>
               </Link>
             </DropdownMenuItem>
