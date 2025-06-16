@@ -7,9 +7,8 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
 } from '@/components/ui/sidebar';
-import { HomeIcon, ShoppingBag, ShoppingCart, Wallet, Package, Settings, LogOut } from 'lucide-react'; // Added Settings and LogOut
+import { HomeIcon, ShoppingBag, ShoppingCart, Wallet, Package } from 'lucide-react';
 
 const AppSidebar = () => {
   const menuItems = [
@@ -48,32 +47,7 @@ const AppSidebar = () => {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton 
-              asChild
-              tooltip={{ children: 'Settings', side: 'right', align: 'center' }}
-            >
-              <Link href="/settings">
-                <Settings />
-                <span>Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton 
-              asChild
-              tooltip={{ children: 'Logout', side: 'right', align: 'center' }}
-            >
-              <Link href="/logout">
-                <LogOut />
-                <span>Logout</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+      {/* SidebarFooter with Settings and Logout is removed */}
     </>
   );
 };

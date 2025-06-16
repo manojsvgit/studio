@@ -15,14 +15,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, UserCircle, Wallet, Search, Settings, ChevronDown } from 'lucide-react';
+import { Bell, UserCircle, Wallet, Search, Settings, ChevronDown, LogOut } from 'lucide-react';
 import { useWalletStore } from '@/stores/wallet-store';
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
 
 const AppHeader = () => {
-  const { searchTerm, setSearchTerm, getFilteredCurrencies, getTotalPortfolioValueINR } = useWalletStore();
+  const { searchTerm, setSearchTerm, getFilteredCurrencies } = useWalletStore();
   const filteredCurrencies = getFilteredCurrencies();
-  const totalPortfolioValue = getTotalPortfolioValueINR(); // Not used in trigger per simplified design
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
@@ -30,7 +29,6 @@ const AppHeader = () => {
         <div className="md:hidden">
           <SidebarTrigger />
         </div>
-        {/* Optional: Page title or branding */}
       </div>
 
       <div className="flex flex-1 justify-center"> {/* Center item: Wallet Dropdown */}
@@ -86,9 +84,30 @@ const AppHeader = () => {
         <Button variant="ghost" size="icon" aria-label="Notifications" className="text-foreground hover:bg-accent hover:text-accent-foreground">
           <Bell className="h-5 w-5" />
         </Button>
-        <Button variant="ghost" size="icon" aria-label="User Profile" className="text-foreground hover:bg-accent hover:text-accent-foreground">
-          <UserCircle className="h-6 w-6" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="User Profile" className="text-foreground hover:bg-accent hover:text-accent-foreground">
+              <UserCircle className="h-6 w-6" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56 bg-card border-border shadow-xl" align="end">
+            <DropdownMenuLabel className="font-normal text-card-foreground">My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem asChild className="hover:bg-secondary cursor-pointer focus:bg-secondary">
+              <Link href="/settings" className="flex items-center w-full">
+                <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-card-foreground">Settings</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border"/>
+            <DropdownMenuItem asChild className="hover:bg-secondary cursor-pointer focus:bg-secondary">
+              <Link href="/logout" className="flex items-center w-full">
+                <LogOut className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-card-foreground">Logout</span>
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
