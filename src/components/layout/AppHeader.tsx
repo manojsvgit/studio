@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,12 +16,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, ShieldCheckIcon } from 'lucide-react';
+import { Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, ShieldCheckIcon, Send, AlertTriangle } from 'lucide-react';
 import { useWalletStore } from '@/stores/wallet-store';
 import { useCartStore } from '@/stores/cart-store';
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
 import { useToast } from '@/hooks/use-toast';
+import type { WalletCurrency } from '@/types/wallet';
 
 const AppHeader = () => {
   const { 
@@ -30,8 +33,9 @@ const AppHeader = () => {
     getFilteredCurrencies,
     selectedCurrencyId,
     setSelectedCurrencyId,
-    currencies,
+    currencies: walletCurrencies,
     getTotalPortfolioValueINR,
+    deductCurrencyBalance,
   } = useWalletStore();
   
   const { getCartItemCount } = useCartStore();
@@ -41,7 +45,15 @@ const AppHeader = () => {
   const [isClient, setIsClient] = useState(false);
   const [hydratedWalletDisplay, setHydratedWalletDisplay] = useState<{ iconSymbol: string, text: string, color?: string } | null>(null);
   
+  // Tip Tab State
+  const [selectedTipCurrency, setSelectedTipCurrency] = useState<WalletCurrency | null>(null);
+  const [tipAmount, setTipAmount] = useState('');
+  const [recipientPhoneNumber, setRecipientPhoneNumber] = useState('');
+  const [tipError, setTipError] = useState<string | null>(null);
+
   const totalWalletBalanceINR = getTotalPortfolioValueINR();
+  const availableCryptoCurrenciesForTip = walletCurrencies.filter(c => c.balance > 0 && c.symbol !== 'INR');
+
 
   useEffect(() => {
     setIsClient(true); 
@@ -82,6 +94,49 @@ const AppHeader = () => {
   const handleWithdraw = () => toast({ title: "Withdraw Action", description: "Withdraw functionality is not yet implemented." });
   const handleDeposit = () => toast({ title: "Deposit Action", description: "Deposit functionality is not yet implemented." });
   const handleEnable2FA = () => toast({ title: "Enable 2FA Action", description: "2FA setup is not yet implemented." });
+
+  const handleTipAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+     if (/^\d*\.?\d*$/.test(value)) { // Allow only numbers and a single decimal point
+      setTipAmount(value);
+      setTipError(null); // Clear error when user types
+    }
+  };
+
+  const handleSendTip = () => {
+    setTipError(null);
+    if (!selectedTipCurrency) {
+      setTipError("Please select a currency to tip with.");
+      return;
+    }
+    const amount = parseFloat(tipAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setTipError("Please enter a valid positive amount.");
+      return;
+    }
+    if (!recipientPhoneNumber.trim()) {
+      setTipError("Please enter the recipient's phone number.");
+      return;
+    }
+    if (amount > selectedTipCurrency.balance) {
+      setTipError(`Insufficient ${selectedTipCurrency.symbol} balance. You have ${selectedTipCurrency.balance.toFixed(selectedTipCurrency.symbol === 'BTC' || selectedTipCurrency.symbol === 'ETH' ? 8 : 4)}.`);
+      return;
+    }
+
+    deductCurrencyBalance(selectedTipCurrency.id, amount);
+    toast({
+      title: "Tip Sent!",
+      description: `Tip of ${amount.toFixed(selectedTipCurrency.symbol === 'BTC' || selectedTipCurrency.symbol === 'ETH' ? 8 : 4)} ${selectedTipCurrency.symbol} sent to ${recipientPhoneNumber} successfully.`,
+    });
+    
+    // Reset form
+    setSelectedTipCurrency(null);
+    setTipAmount('');
+    setRecipientPhoneNumber('');
+  };
+
+  const isTipButtonDisabled = !selectedTipCurrency || !tipAmount || !recipientPhoneNumber || parseFloat(tipAmount) <= 0 || (selectedTipCurrency && parseFloat(tipAmount) > selectedTipCurrency.balance);
+
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
@@ -162,7 +217,7 @@ const AppHeader = () => {
                               key={currency.id} 
                               className="flex justify-between items-center p-2 hover:bg-card/50 focus:bg-card/50 cursor-pointer rounded-md"
                               onSelect={() => setSelectedCurrencyId(currency.id)}
-                              disabled={currency.id === selectedCurrencyId} // Disable if already selected
+                              disabled={currency.id === selectedCurrencyId} 
                             >
                               <div className="flex items-center gap-2">
                                 <CryptoCurrencyIcon symbol={currency.symbol} className={`h-5 w-5 ${currency.color || 'text-card-foreground'}`} />
@@ -213,13 +268,123 @@ const AppHeader = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
-              <TabsContent value="tip" className="p-3">
-                <Card className="bg-secondary/30 border-border">
-                  <CardContent className="pt-6">
-                  <p className="text-muted-foreground p-4 text-center text-sm">Tip functionality coming soon.</p>
+
+              <TabsContent value="tip" className="p-4 max-h-[70vh] overflow-y-auto">
+                <Card className="bg-secondary/30 border-border shadow-none">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-lg text-card-foreground">Send a Tip</CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">Quickly send crypto to a phone number.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-4">
+                    <div>
+                      <Label htmlFor="tip-currency" className="text-xs font-medium text-muted-foreground">Tip From Wallet</Label>
+                      <Select
+                        value={selectedTipCurrency?.id || ''}
+                        onValueChange={(value) => {
+                          const newSelectedCrypto = availableCryptoCurrenciesForTip.find(c => c.id === value);
+                          setSelectedTipCurrency(newSelectedCrypto || null);
+                          setTipError(null);
+                        }}
+                      >
+                        <SelectTrigger id="tip-currency" className="w-full mt-1 bg-input border-border h-11">
+                          {selectedTipCurrency ? (
+                            <div className="flex items-center gap-2">
+                              <CryptoCurrencyIcon symbol={selectedTipCurrency.symbol} className={`h-5 w-5 ${selectedTipCurrency.color || 'text-foreground'}`} />
+                              <span>{selectedTipCurrency.name} ({selectedTipCurrency.symbol})</span>
+                            </div>
+                          ) : (
+                            <SelectValue placeholder="Select a currency" />
+                          )}
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border-border">
+                          {availableCryptoCurrenciesForTip.length > 0 ? availableCryptoCurrenciesForTip.map(currency => (
+                            <SelectItem key={currency.id} value={currency.id} className="hover:bg-secondary focus:bg-secondary">
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                  <CryptoCurrencyIcon symbol={currency.symbol} className={`h-5 w-5 ${currency.color || 'text-foreground'}`} />
+                                  <div>
+                                    <div className="text-sm">{currency.name} ({currency.symbol})</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      Bal: {currency.balance.toFixed(currency.symbol === 'BTC' || currency.symbol === 'ETH' ? 8 : 4)}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-right text-muted-foreground">
+                                  ≈ ₹{(currency.balance * currency.priceInINR).toFixed(2)}
+                                </div>
+                              </div>
+                            </SelectItem>
+                          )) : (
+                            <div className="p-4 text-sm text-muted-foreground text-center">No crypto with balance available for tipping.</div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {selectedTipCurrency && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Available: {selectedTipCurrency.balance.toFixed(selectedTipCurrency.symbol === 'BTC' || selectedTipCurrency.symbol === 'ETH' ? 8 : 4)} {selectedTipCurrency.symbol}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="tip-amount" className="text-xs font-medium text-muted-foreground">Amount <span className="text-destructive">*</span></Label>
+                      <div className="relative mt-1">
+                        <Input
+                          id="tip-amount"
+                          type="text"
+                          value={tipAmount}
+                          onChange={handleTipAmountChange}
+                          placeholder="0.00"
+                          className="bg-input border-border h-11 pr-20"
+                        />
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                          <span className="text-muted-foreground text-sm">
+                            {selectedTipCurrency?.symbol || 'QTY'}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Placeholder for Min/INR buttons if needed later, matching image style
+                      <div className="flex items-center gap-2 mt-1 text-xs">
+                        <Button variant="outline" size="sm" className="h-6 px-2 text-xs border-primary text-primary hover:bg-primary/10">₹</Button>
+                        <Button variant="outline" size="sm" className="h-6 px-2 text-xs border-primary text-primary hover:bg-primary/10">Min</Button>
+                      </div>
+                      */}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="recipient-phone" className="text-xs font-medium text-muted-foreground">Phone Number <span className="text-destructive">*</span></Label>
+                      <Input
+                        id="recipient-phone"
+                        type="tel"
+                        value={recipientPhoneNumber}
+                        onChange={(e) => {
+                          setRecipientPhoneNumber(e.target.value);
+                          setTipError(null); // Clear error
+                        }}
+                        placeholder="Enter recipient's phone number"
+                        className="mt-1 bg-input border-border h-11"
+                      />
+                    </div>
+
+                    {tipError && (
+                      <div className="flex items-center text-xs text-destructive p-2 bg-destructive/10 rounded-md">
+                        <AlertTriangle className="h-4 w-4 mr-2 shrink-0" />
+                        {tipError}
+                      </div>
+                    )}
+
+                    <Button 
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 mt-2"
+                      onClick={handleSendTip}
+                      disabled={isTipButtonDisabled}
+                    >
+                      <Send className="mr-2 h-4 w-4" /> Tip
+                    </Button>
                   </CardContent>
                 </Card>
               </TabsContent>
+
+
               <TabsContent value="settings-tab" className="p-3">
                 <Card className="bg-secondary/30 border-border">
                   <CardContent className="pt-6">
@@ -277,3 +442,5 @@ const AppHeader = () => {
 
 export default AppHeader;
 
+
+    
