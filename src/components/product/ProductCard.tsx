@@ -5,7 +5,7 @@ import Image from 'next/image';
 import type { Product } from '@/types/product';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCartIcon } from 'lucide-react';
+import { ShoppingCartIcon, Trash2Icon } from 'lucide-react'; // Added Trash2Icon
 import { useCartStore } from '@/stores/cart-store';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,15 +14,27 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addToCart } = useCartStore();
+  // Destructure actions and items for checking if product is in cart
+  const { addToCart, removeFromCart, items } = useCartStore();
   const { toast } = useToast();
 
-  const handleAddToCart = () => {
-    addToCart(product);
-    toast({
-      title: "Added to cart",
-      description: `${product.name} has been added to your cart.`,
-    });
+  const isInCart = items.some(item => item.id === product.id);
+
+  const handleToggleCart = () => {
+    if (isInCart) {
+      removeFromCart(product.id);
+      toast({
+        title: "Removed from cart",
+        description: `${product.name} has been removed from your cart.`,
+        variant: "destructive",
+      });
+    } else {
+      addToCart(product);
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart.`,
+      });
+    }
   };
 
   return (
@@ -46,10 +58,19 @@ export default function ProductCard({ product }: ProductCardProps) {
       </CardContent>
       <CardFooter className="p-4 border-t border-border">
         <Button
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-          onClick={handleAddToCart}
+          className="w-full"
+          variant={isInCart ? "destructive" : "default"}
+          onClick={handleToggleCart}
         >
-          <ShoppingCartIcon className="mr-2 h-4 w-4" /> Add to Cart
+          {isInCart ? (
+            <>
+              <Trash2Icon className="mr-2 h-4 w-4" /> Remove from Cart
+            </>
+          ) : (
+            <>
+              <ShoppingCartIcon className="mr-2 h-4 w-4" /> Add to Cart
+            </>
+          )}
         </Button>
       </CardFooter>
     </Card>
