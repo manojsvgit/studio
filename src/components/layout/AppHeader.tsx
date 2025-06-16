@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Bell, UserCircle, Wallet, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon } from 'lucide-react';
 import { useWalletStore } from '@/stores/wallet-store';
-import { useCartStore } from '@/stores/cart-store'; // Import cart store
+import { useCartStore } from '@/stores/cart-store';
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
 
 const AppHeader = () => {
@@ -24,43 +24,59 @@ const AppHeader = () => {
     searchTerm, 
     setSearchTerm, 
     getFilteredCurrencies, 
-    currencies, 
-    selectedCurrencyId, 
-    setSelectedCurrencyId 
-  } = useWalletStore();
+  } = useWalletStore(); // Removed currencies and selectedCurrencyId direct destructure
   
-  // Cart item count state
   const { getCartItemCount } = useCartStore();
   const [hydratedCartItemCount, setHydratedCartItemCount] = useState<number>(0);
   const [isClient, setIsClient] = useState(false);
+  const [hydratedWalletDisplay, setHydratedWalletDisplay] = useState<{ iconSymbol: string, text: string, color?: string } | null>(null);
 
   useEffect(() => {
-    setIsClient(true); // Component has mounted on the client
+    setIsClient(true); 
 
     const syncCartCount = () => {
-      setHydratedCartItemCount(getCartItemCount());
+      setHydratedCartItemCount(useCartStore.getState().getCartItemCount());
+    };
+    syncCartCount();
+    const unsubscribeCart = useCartStore.subscribe(syncCartCount);
+
+    const syncWalletDisplay = () => {
+      const { currencies, selectedCurrencyId } = useWalletStore.getState();
+      const currentActiveCurrency = currencies.find(c => c.id === selectedCurrencyId) || 
+                                   currencies.find(c => c.symbol === 'INR') || 
+                                   (currencies.length > 0 ? currencies[0] : null);
+      if (currentActiveCurrency) {
+        setHydratedWalletDisplay({
+          iconSymbol: currentActiveCurrency.symbol,
+          text: `₹${(currentActiveCurrency.balance * currentActiveCurrency.priceInINR).toFixed(2)}`,
+          color: currentActiveCurrency.color,
+        });
+      } else {
+        // Fallback if no currency is available (e.g. initial empty store)
+         setHydratedWalletDisplay({ iconSymbol: 'default', text: 'Wallet', color: 'text-primary-foreground' });
+      }
     };
 
-    syncCartCount(); // Initial sync
-
-    const unsubscribeCart = useCartStore.subscribe(syncCartCount); // Subscribe to cart changes
+    syncWalletDisplay(); // Initial sync after client mount
+    const unsubscribeWallet = useWalletStore.subscribe(syncWalletDisplay);
 
     return () => {
-      unsubscribeCart(); // Cleanup subscription
+      unsubscribeCart();
+      unsubscribeWallet();
     };
-  }, [getCartItemCount]);
-  
+  }, []); // Empty dependency array, subscriptions handle updates
+
   const filteredCurrencies = getFilteredCurrencies();
-  const activeCurrency = currencies.find(c => c.id === selectedCurrencyId) || 
-                         currencies.find(c => c.symbol === 'INR') || 
-                         currencies[0];
+  // selectedCurrencyId for DropdownMenuItem onSelect is handled by store action
+  const { setSelectedCurrencyId } = useWalletStore.getState();
+
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
-      <div className="flex items-center gap-2"> {/* Left items - Placeholder */}
+      <div className="flex items-center gap-2"> 
       </div>
 
-      <div className="flex flex-1 justify-center"> {/* Center item: Wallet Dropdown */}
+      <div className="flex flex-1 justify-center"> 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
@@ -68,15 +84,18 @@ const AppHeader = () => {
               className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[160px] flex items-center justify-between px-3"
             >
               <div className="flex items-center overflow-hidden">
-                {activeCurrency ? (
+                {isClient && hydratedWalletDisplay ? (
                   <>
-                    <CryptoCurrencyIcon symbol={activeCurrency.symbol} className={`mr-2 h-5 w-5 flex-shrink-0 ${activeCurrency.color || 'text-primary-foreground'}`} />
+                    <CryptoCurrencyIcon symbol={hydratedWalletDisplay.iconSymbol} className={`mr-2 h-5 w-5 flex-shrink-0 ${hydratedWalletDisplay.color || 'text-primary-foreground'}`} />
                     <span className="truncate text-sm">
-                      ₹{(activeCurrency.balance * activeCurrency.priceInINR).toFixed(2)}
+                      {hydratedWalletDisplay.text}
                     </span>
                   </>
                 ) : (
-                  <Wallet className="mr-2 h-4 w-4" /> /* Fallback */
+                  <>
+                    <Wallet className="mr-2 h-4 w-4" />
+                    <span className="truncate text-sm">Wallet</span>
+                  </>
                 )}
               </div>
               <ChevronDown className="ml-2 h-4 w-4 opacity-80 flex-shrink-0" />
@@ -128,7 +147,7 @@ const AppHeader = () => {
         </DropdownMenu>
       </div>
 
-      <div className="flex items-center gap-2"> {/* Right items */}
+      <div className="flex items-center gap-2"> 
         <Button variant="ghost" size="icon" aria-label="Notifications" className="text-foreground hover:bg-accent hover:text-accent-foreground">
           <Bell className="h-5 w-5" />
         </Button>
