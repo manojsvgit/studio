@@ -1,3 +1,4 @@
+
 import type { Product } from '@/types/product';
 
 const formatSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
@@ -13,7 +14,7 @@ export const mockProducts: Product[] = [
     price: 3.24,
     cryptoPrices: { BTC: 0.00005, ETH: 0.0009, USDT: 3.24, USDC: 3.24 },
     description: 'Fresh whole milk, 1 gallon. Perfect for your daily needs, from cereal to coffee.',
-    images: ['https://placehold.co/600x400.png'],
+    images: ['https://placehold.co/600x401.png'], // Updated
     rating: 4.5,
     reviewCount: 1247,
     inStock: true,
@@ -34,7 +35,7 @@ export const mockProducts: Product[] = [
     price: 1.99,
     cryptoPrices: { BTC: 0.00003, ETH: 0.00055, USDT: 1.99, USDC: 1.99 },
     description: 'A bunch of fresh, organic bananas. Rich in potassium and naturally sweet.',
-    images: ['https://placehold.co/600x400.png'],
+    images: ['https://placehold.co/600x402.png'], // Updated
     rating: 4.7,
     reviewCount: 980,
     inStock: true,
@@ -55,7 +56,7 @@ export const mockProducts: Product[] = [
     price: 2.50,
     cryptoPrices: { BTC: 0.00004, ETH: 0.0007, USDT: 2.50, USDC: 2.50 },
     description: 'Soft and delicious white bread, freshly baked. Ideal for sandwiches and toast.',
-    images: ['https://placehold.co/600x400.png'],
+    images: ['https://placehold.co/600x403.png'], // Updated
     rating: 4.3,
     reviewCount: 750,
     inStock: true,
@@ -76,7 +77,7 @@ export const mockProducts: Product[] = [
     price: 9.98,
     cryptoPrices: { BTC: 0.00015, ETH: 0.0028, USDT: 9.98, USDC: 9.98 },
     description: 'Value pack of boneless, skinless chicken breasts. Versatile for many recipes.',
-    images: ['https://placehold.co/600x400.png'],
+    images: ['https://placehold.co/600x404.png'], // Updated
     rating: 4.6,
     reviewCount: 1500,
     inStock: true,
