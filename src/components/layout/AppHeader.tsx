@@ -2,7 +2,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, type ChangeEvent, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect, type ChangeEvent, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,12 +22,20 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, ShieldCheckIcon, Send, AlertTriangle, X, Euro, JapaneseYen, IndianRupee, DollarSign, House } from 'lucide-react';
+import { 
+  Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, 
+  ShieldCheckIcon, Send, AlertTriangle, X, Euro, JapaneseYen, IndianRupee, DollarSign, House, 
+  MessageSquareWarning, Info, Gift, ShoppingBasket, CircleDot, Trash2
+} from 'lucide-react';
 import { useWalletStore } from '@/stores/wallet-store';
 import { useCartStore } from '@/stores/cart-store';
+import { useNotificationStore } from '@/stores/notification-store';
+import type { Notification } from '@/types/notification';
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
 import { useToast } from '@/hooks/use-toast';
 import type { WalletCurrency } from '@/types/wallet';
+import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const fiatDisplayOptions = [
   { value: 'USD', label: 'USD', Icon: DollarSign, color: 'text-green-500' },
@@ -39,20 +48,34 @@ const fiatDisplayOptions = [
   { value: 'CNY', label: 'CNY', Icon: JapaneseYen, color: 'text-red-500' }, // Using Yen as proxy
   { value: 'GHS', label: 'GHS', textSymbol: 'GH₵', color: 'text-green-400' },
   { value: 'IDR', label: 'IDR', textSymbol: 'Rp', color: 'text-red-400' },
-  { value: 'KES', label: 'KES', textSymbol: 'KSh', color: 'text-black' }, // Placeholder color
+  { value: 'KES', label: 'KES', textSymbol: 'KSh', color: 'text-muted-foreground' },
   { value: 'KRW', label: 'KRW', textSymbol: '₩', color: 'text-blue-600' },
   { value: 'MXN', label: 'MXN', textSymbol: 'MXN$', color: 'text-green-700' },
   { value: 'NGN', label: 'NGN', textSymbol: '₦', color: 'text-green-800' },
   { value: 'PEN', label: 'PEN', textSymbol: 'S/.', color: 'text-red-600' },
   { value: 'PHP', label: 'PHP', textSymbol: '₱', color: 'text-sky-500' },
   { value: 'PLN', label: 'PLN', textSymbol: 'zł', color: 'text-red-700' },
-  { value: 'RUB', label: 'RUB', textSymbol: '₽', color: 'text-red-800' }, // No direct Ruble icon
-  { value: 'TRY', label: 'TRY', textSymbol: '₺', color: 'text-red-900' }, // No direct Lira icon
+  { value: 'RUB', label: 'RUB', textSymbol: '₽', color: 'text-red-800' }, 
+  { value: 'TRY', label: 'TRY', textSymbol: '₺', color: 'text-red-900' }, 
   { value: 'VND', label: 'VND', textSymbol: '₫', color: 'text-red-400' },
 ];
 
+const getCategoryIcon = (category?: Notification['category']) => {
+  switch (category) {
+    case 'order': return <ShoppingBasket className="h-4 w-4 text-blue-500" />;
+    case 'promo': return <Gift className="h-4 w-4 text-purple-500" />;
+    case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+    case 'error': return <MessageSquareWarning className="h-4 w-4 text-red-500" />;
+    case 'success': return <ShieldCheckIcon className="h-4 w-4 text-green-500" />;
+    case 'info':
+    default:
+      return <Info className="h-4 w-4 text-sky-500" />;
+  }
+};
+
 
 const AppHeader = () => {
+  const router = useRouter();
   const {
     searchTerm,
     setSearchTerm,
@@ -66,12 +89,24 @@ const AppHeader = () => {
   } = useWalletStore();
 
   const { getCartItemCount } = useCartStore();
+  const { 
+    getNotifications, 
+    getUnreadCount, 
+    markAsRead, 
+    markAllAsRead, 
+    clearNotifications 
+  } = useNotificationStore();
   const { toast } = useToast();
 
-  const [hydratedCartItemCount, setHydratedCartItemCount] = useState<number>(0);
   const [isClient, setIsClient] = useState(false);
+  
+  const [hydratedCartItemCount, setHydratedCartItemCount] = useState<number>(0);
   const [hydratedWalletDisplay, setHydratedWalletDisplay] = useState<{ iconSymbol: string, text: string, color?: string } | null>(null);
+  const [hydratedNotifications, setHydratedNotifications] = useState<Notification[]>([]);
+  const [hydratedUnreadCount, setHydratedUnreadCount] = useState<number>(0);
+  
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
 
   const [selectedTipCurrency, setSelectedTipCurrency] = useState<WalletCurrency | null>(null);
   const [tipAmount, setTipAmount] = useState('');
@@ -83,11 +118,9 @@ const AppHeader = () => {
   const [buyFiatCurrency, setBuyFiatCurrency] = useState('INR');
   const [buyError, setBuyError] = useState<string | null>(null);
 
-  // Wallet Settings Tab State
   const [hideZeroBalances, setHideZeroBalances] = useState(false);
   const [displayCryptoInFiat, setDisplayCryptoInFiat] = useState(true);
   const [selectedFiatDisplayCurrency, setSelectedFiatDisplayCurrency] = useState('INR');
-
 
   const totalWalletBalanceINR = getTotalPortfolioValueINR();
 
@@ -99,15 +132,12 @@ const AppHeader = () => {
     return walletCurrencies.filter(c => c.symbol !== 'INR');
   }, [walletCurrencies]);
 
-
   useEffect(() => {
     setIsClient(true);
 
-    const syncCartCount = () => {
-      setHydratedCartItemCount(useCartStore.getState().getCartItemCount());
-    };
+    const syncCartCount = () => setHydratedCartItemCount(useCartStore.getState().getCartItemCount());
     syncCartCount();
-    const unsubscribeCart = useCartStore.subscribe(syncCartCount);
+    const unsubCart = useCartStore.subscribe(syncCartCount);
 
     const syncWalletDisplay = () => {
       const storeState = useWalletStore.getState();
@@ -125,11 +155,19 @@ const AppHeader = () => {
       }
     };
     syncWalletDisplay();
-    const unsubscribeWallet = useWalletStore.subscribe(syncWalletDisplay);
+    const unsubWallet = useWalletStore.subscribe(syncWalletDisplay);
+    
+    const syncNotifications = () => {
+        setHydratedNotifications(useNotificationStore.getState().getNotifications());
+        setHydratedUnreadCount(useNotificationStore.getState().getUnreadCount());
+    };
+    syncNotifications();
+    const unsubNotifications = useNotificationStore.subscribe(syncNotifications);
 
     return () => {
-      unsubscribeCart();
-      unsubscribeWallet();
+      unsubCart();
+      unsubWallet();
+      unsubNotifications();
     };
   }, []);
 
@@ -142,7 +180,6 @@ const AppHeader = () => {
     }
   }, [isClient, cryptoCurrenciesForPurchase, selectedCryptoToBuyId]);
 
-
   const filteredCurrencies = getFilteredCurrencies();
 
   const handleWithdraw = () => toast({ title: "Withdraw Action", description: "Withdraw functionality is not yet implemented." });
@@ -151,7 +188,7 @@ const AppHeader = () => {
 
   const handleTipAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-     if (/^\d*\.?\d*$/.test(value)) {
+     if (/^\d*\.?\d*$/.test(value) || value === '') {
       setTipAmount(value);
       setTipError(null);
     }
@@ -186,14 +223,14 @@ const AppHeader = () => {
     setSelectedTipCurrency(null);
     setTipAmount('');
     setRecipientPhoneNumber('');
-    setWalletDropdownOpen(false); // Close dropdown after tipping
+    setWalletDropdownOpen(false);
   };
 
-  const isTipButtonDisabled = !selectedTipCurrency || !tipAmount || !recipientPhoneNumber || parseFloat(tipAmount) <= 0 || (selectedTipCurrency && parseFloat(tipAmount) > selectedTipCurrency.balance);
+  const isTipButtonDisabled = !selectedTipCurrency || !tipAmount || parseFloat(tipAmount) <= 0 || !recipientPhoneNumber || (selectedTipCurrency && parseFloat(tipAmount) > selectedTipCurrency.balance);
 
   const handleBuyAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (/^\d*\.?\d*$/.test(value)) {
+    if (/^\d*\.?\d*$/.test(value) || value === '') {
       setBuyAmountInFiat(value);
       setBuyError(null);
     }
@@ -221,11 +258,18 @@ const AppHeader = () => {
     });
 
     setBuyAmountInFiat('');
-    setWalletDropdownOpen(false); // Close dropdown after buying
+    setWalletDropdownOpen(false);
   };
 
   const isBuyButtonDisabled = !selectedCryptoToBuyId || !buyAmountInFiat || parseFloat(buyAmountInFiat) <= 0;
 
+  const handleNotificationClick = (notification: Notification) => {
+    markAsRead(notification.id);
+    if (notification.link) {
+      router.push(notification.link);
+    }
+    setNotificationDropdownOpen(false);
+  };
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
@@ -297,7 +341,7 @@ const AppHeader = () => {
                   </Card>
 
                   <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                     {isClient ? <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" /> : <div className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 bg-muted rounded"/>}
                     <Input
                       type="search"
                       placeholder="Search Currencies..."
@@ -326,7 +370,7 @@ const AppHeader = () => {
                               className="flex justify-between items-center p-2 hover:bg-card/50 focus:bg-card/50 cursor-pointer rounded-md"
                               onSelect={() => {
                                 setSelectedCurrencyId(currency.id);
-                                setWalletDropdownOpen(false); // Close dropdown on selection
+                                setWalletDropdownOpen(false); 
                               }}
                               disabled={currency.id === selectedCurrencyId}
                             >
@@ -362,7 +406,7 @@ const AppHeader = () => {
                   <Card className="bg-secondary/30 border-border">
                     <CardContent className="pt-4 p-3">
                       <div className="flex flex-col items-center text-center">
-                          <ShieldCheckIcon className="h-8 w-8 text-accent mb-2" />
+                          {isClient ? <ShieldCheckIcon className="h-8 w-8 text-accent mb-2" /> : <div className="h-8 w-8 bg-muted rounded mb-2" />}
                           <h3 className="text-sm font-semibold text-card-foreground">Improve account security</h3>
                           <p className="text-xs text-muted-foreground mb-3">Enable Two-Factor Authentication.</p>
                           <Button variant="outline" size="sm" className="w-full text-xs h-9" onClick={handleEnable2FA}>Enable 2FA</Button>
@@ -388,7 +432,7 @@ const AppHeader = () => {
                                 }}
                             >
                                 <SelectTrigger id="buy-crypto-select" className="w-full mt-1 bg-input border-border h-11">
-                                    {selectedCryptoToBuyId && walletCurrencies.find(c => c.id === selectedCryptoToBuyId) ? (
+                                    {isClient && selectedCryptoToBuyId && walletCurrencies.find(c => c.id === selectedCryptoToBuyId) ? (
                                         <div className="flex items-center gap-2">
                                             <CryptoCurrencyIcon symbol={walletCurrencies.find(c => c.id === selectedCryptoToBuyId)!.symbol} className={`h-5 w-5 ${walletCurrencies.find(c => c.id === selectedCryptoToBuyId)!.color || 'text-foreground'}`} />
                                             <span>{walletCurrencies.find(c => c.id === selectedCryptoToBuyId)!.name} ({walletCurrencies.find(c => c.id === selectedCryptoToBuyId)!.symbol})</span>
@@ -427,7 +471,7 @@ const AppHeader = () => {
                                     <SelectContent className="bg-popover border-border">
                                         <SelectItem value="INR">
                                             <div className="flex items-center gap-1">
-                                                <CryptoCurrencyIcon symbol="INR" className="h-4 w-4 text-green-500"/> INR
+                                                {isClient ? <CryptoCurrencyIcon symbol="INR" className="h-4 w-4 text-green-500"/> : <div className="h-4 w-4 bg-muted rounded"/> } INR
                                             </div>
                                         </SelectItem>
                                     </SelectContent>
@@ -436,7 +480,7 @@ const AppHeader = () => {
                         </div>
                         {buyError && (
                             <div className="flex items-center text-xs text-destructive p-2 bg-destructive/10 rounded-md">
-                                <AlertTriangle className="h-4 w-4 mr-2 shrink-0" />
+                               {isClient ? <AlertTriangle className="h-4 w-4 mr-2 shrink-0" /> : <div className="h-4 w-4 mr-2 shrink-0 bg-muted rounded"/>}
                                 {buyError}
                             </div>
                         )}
@@ -449,7 +493,7 @@ const AppHeader = () => {
                         </Button>
                         <Separator className="my-4 bg-border"/>
                         <div className="flex flex-col items-center text-center p-2">
-                            <ShieldCheckIcon className="h-7 w-7 text-accent mb-1.5" />
+                            {isClient ? <ShieldCheckIcon className="h-7 w-7 text-accent mb-1.5" /> : <div className="h-7 w-7 bg-muted rounded mb-1.5" />}
                             <h3 className="text-sm font-medium text-card-foreground">Improve your account security</h3>
                             <p className="text-xs text-muted-foreground mb-2.5">Enable Two-Factor Authentication.</p>
                             <Button variant="outline" size="sm" className="w-full text-xs h-8" onClick={handleEnable2FA}>Enable 2FA</Button>
@@ -476,7 +520,7 @@ const AppHeader = () => {
                         }}
                       >
                         <SelectTrigger id="tip-currency" className="w-full mt-1 bg-input border-border h-11">
-                          {selectedTipCurrency ? (
+                          {isClient && selectedTipCurrency ? (
                             <div className="flex items-center gap-2">
                               <CryptoCurrencyIcon symbol={selectedTipCurrency.symbol} className={`h-5 w-5 ${selectedTipCurrency.color || 'text-foreground'}`} />
                               <span>{selectedTipCurrency.name} ({selectedTipCurrency.symbol})</span>
@@ -508,7 +552,7 @@ const AppHeader = () => {
                           )}
                         </SelectContent>
                       </Select>
-                      {selectedTipCurrency && (
+                      {isClient && selectedTipCurrency && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Available: {selectedTipCurrency.balance.toFixed(selectedTipCurrency.symbol === 'BTC' || selectedTipCurrency.symbol === 'ETH' ? 8 : 4)} {selectedTipCurrency.symbol}
                         </p>
@@ -528,7 +572,7 @@ const AppHeader = () => {
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                           <span className="text-muted-foreground text-sm">
-                            {selectedTipCurrency?.symbol || 'QTY'}
+                            {isClient && selectedTipCurrency?.symbol || 'QTY'}
                           </span>
                         </div>
                       </div>
@@ -551,7 +595,7 @@ const AppHeader = () => {
 
                     {tipError && (
                       <div className="flex items-center text-xs text-destructive p-2 bg-destructive/10 rounded-md">
-                        <AlertTriangle className="h-4 w-4 mr-2 shrink-0" />
+                        {isClient ? <AlertTriangle className="h-4 w-4 mr-2 shrink-0" /> : <div className="h-4 w-4 mr-2 shrink-0 bg-muted rounded"/>}
                         {tipError}
                       </div>
                     )}
@@ -561,7 +605,7 @@ const AppHeader = () => {
                       onClick={handleSendTip}
                       disabled={isTipButtonDisabled}
                     >
-                      <Send className="mr-2 h-4 w-4" /> Tip
+                      {isClient ? <Send className="mr-2 h-4 w-4" /> : <div className="mr-2 h-4 w-4 bg-muted rounded"/>} Tip
                     </Button>
                   </CardContent>
                 </Card>
@@ -601,14 +645,14 @@ const AppHeader = () => {
                       <RadioGroup
                         value={selectedFiatDisplayCurrency}
                         onValueChange={setSelectedFiatDisplayCurrency}
-                        className="grid grid-cols-4 gap-x-2 gap-y-4"
+                        className="grid grid-cols-3 sm:grid-cols-4 gap-x-2 gap-y-4"
                       >
                         {fiatDisplayOptions.map(({ value, label, Icon, textSymbol, color }) => (
                           <div key={value} className="flex items-center space-x-2">
                             <RadioGroupItem value={value} id={`fiat-${value}`} />
                             <Label htmlFor={`fiat-${value}`} className="flex items-center gap-1.5 text-xs cursor-pointer text-card-foreground">
                               {label}
-                              {Icon ? <Icon className={`h-3 w-3 ${color}`} /> : <span className={`text-xs font-mono ${color}`}>{textSymbol}</span>}
+                              {isClient && Icon ? <Icon className={cn("h-3 w-3", color)} /> : isClient && textSymbol ? <span className={cn("text-xs font-mono", color)}>{textSymbol}</span> : <div className="h-3 w-3 bg-muted rounded"/>}
                             </Label>
                           </div>
                         ))}
@@ -617,7 +661,7 @@ const AppHeader = () => {
                     
                     <Separator className="my-4 bg-border"/>
                     <div className="flex flex-col items-center text-center p-2">
-                        <ShieldCheckIcon className="h-7 w-7 text-accent mb-1.5" />
+                        {isClient ? <ShieldCheckIcon className="h-7 w-7 text-accent mb-1.5" /> : <div className="h-7 w-7 bg-muted rounded mb-1.5"/>}
                         <h3 className="text-sm font-medium text-card-foreground">Improve your account security</h3>
                         <p className="text-xs text-muted-foreground mb-2.5">Enable Two-Factor Authentication.</p>
                         <Button variant="outline" size="sm" className="w-full text-xs h-8" onClick={handleEnable2FA}>Enable 2FA</Button>
@@ -631,10 +675,74 @@ const AppHeader = () => {
         </DropdownMenu>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" aria-label="Notifications" className="text-foreground hover:bg-accent hover:text-accent-foreground">
-          {isClient ? <Bell className="h-5 w-5" /> : <div className="h-5 w-5 bg-muted rounded" />}
-        </Button>
+      <div className="flex items-center gap-1 md:gap-2">
+        <DropdownMenu open={notificationDropdownOpen} onOpenChange={setNotificationDropdownOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Notifications" className="text-foreground hover:bg-accent hover:text-accent-foreground relative">
+              {isClient ? <Bell className="h-5 w-5" /> : <div className="h-5 w-5 bg-muted rounded" />}
+              {isClient && hydratedUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
+                  {hydratedUnreadCount > 9 ? '9+' : hydratedUnreadCount}
+                </span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-80 md:w-96 p-0 bg-card border-border shadow-xl" align="end">
+            <DropdownMenuLabel className="flex justify-between items-center p-3 text-card-foreground border-b border-border">
+              <span className="text-lg font-semibold">Notifications</span>
+              {isClient && hydratedUnreadCount > 0 && (
+                 <Button variant="link" size="sm" className="text-xs p-0 h-auto text-primary hover:underline" onClick={() => { markAllAsRead(); setNotificationDropdownOpen(false); }}>Mark all as read</Button>
+              )}
+            </DropdownMenuLabel>
+            {isClient && hydratedNotifications.length > 0 ? (
+              <>
+                <ScrollArea className="h-[300px] md:h-[350px]">
+                  {hydratedNotifications.map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className={cn(
+                        "flex items-start gap-3 p-3 hover:bg-secondary focus:bg-secondary cursor-pointer border-b border-border last:border-b-0",
+                        !notification.isRead && "bg-secondary/50"
+                      )}
+                      onSelect={() => handleNotificationClick(notification)}
+                    >
+                      {!notification.isRead && (
+                        <CircleDot className="h-3 w-3 text-primary mt-1.5 flex-shrink-0" />
+                      )}
+                       <div className={cn("flex-shrink-0 mt-1", notification.isRead && "ml-[18px]")}>
+                        {getCategoryIcon(notification.category)}
+                      </div>
+                      <div className="flex-grow overflow-hidden">
+                        <p className={cn("text-sm font-medium text-card-foreground truncate", !notification.isRead && "font-semibold")}>{notification.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{notification.description}</p>
+                        <p className="text-xs text-muted-foreground/70 mt-0.5">
+                          {formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </ScrollArea>
+                {hydratedNotifications.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator className="bg-border"/>
+                    <DropdownMenuItem
+                      onSelect={() => { clearNotifications(); setNotificationDropdownOpen(false); }}
+                      className="flex items-center justify-center gap-2 p-2 text-sm text-destructive hover:bg-destructive/10 focus:bg-destructive/10 cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4" /> Clear All Notifications
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </>
+            ) : (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                {isClient ? <Bell className="h-10 w-10 mx-auto mb-2 opacity-50" /> : <div className="h-10 w-10 mx-auto mb-2 opacity-50 bg-muted rounded-full"/>}
+                You have no new notifications.
+              </div>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Button asChild variant="ghost" size="icon" aria-label="Shopping Cart" className="text-foreground hover:bg-accent hover:text-accent-foreground relative">
           <Link href="/cart">
             {isClient ? <ShoppingCartIcon className="h-5 w-5" /> : <div className="h-5 w-5 bg-muted rounded" />}
@@ -658,6 +766,12 @@ const AppHeader = () => {
               <Link href="/settings" className="flex items-center w-full">
                 {isClient ? <Settings className="mr-2 h-4 w-4 text-muted-foreground" /> : <div className="mr-2 h-4 w-4 bg-muted rounded"/>}
                 <span className="text-sm text-card-foreground">Settings</span>
+              </Link>
+            </DropdownMenuItem>
+             <DropdownMenuItem asChild className="hover:bg-secondary cursor-pointer focus:bg-secondary">
+              <Link href="/orders" className="flex items-center w-full">
+                {isClient ? <ShoppingBasket className="mr-2 h-4 w-4 text-muted-foreground" /> : <div className="mr-2 h-4 w-4 bg-muted rounded"/>}
+                <span className="text-sm text-card-foreground">My Orders</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border"/>
