@@ -60,7 +60,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           height={300}
           className="object-cover w-full h-48"
           data-ai-hint={product.dataAiHint || 'product image'}
-          priority={product.id === '1' || product.id === '2'} // Prioritize first few images if needed
+          // Removed conditional priority to ensure consistent loading attribute
         />
       </CardHeader>
       <CardContent className="p-4 flex-grow">
