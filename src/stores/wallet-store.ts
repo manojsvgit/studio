@@ -24,20 +24,20 @@ interface WalletState {
   setSelectedCurrencyId: (currencyId: string) => void;
   getFilteredCurrencies: () => WalletCurrency[];
   getTotalPortfolioValueINR: () => number;
-  deductCurrencyBalance: (currencyId: string, amountToDeduct: number) => void; // New action
+  deductCurrencyBalance: (currencyId: string, amountToDeduct: number) => void; 
 }
 
 const initialCurrencies: WalletCurrency[] = [
-  { id: 'inr', name: 'Indian Rupee', symbol: 'INR', icon: IndianRupee, balance: 5000.03, priceInINR: 1, color: 'text-green-500' }, // Increased INR balance
-  { id: 'btc', name: 'Bitcoin', symbol: 'BTC', icon: Bitcoin, balance: 0.005, priceInINR: 5000000, color: 'text-orange-500' }, // Added some BTC
-  { id: 'eth', name: 'Ethereum', symbol: 'ETH', icon: Sigma, balance: 0.1, priceInINR: 300000, color: 'text-gray-400' }, // Added some ETH
-  { id: 'ltc', name: 'Litecoin', symbol: 'LTC', icon: Gem, balance: 5, priceInINR: 8000, color: 'text-slate-500' },
-  { id: 'usdt', name: 'Tether', symbol: 'USDT', icon: DollarSign, balance: 100, priceInINR: 83, color: 'text-green-600' }, // Added some USDT
-  { id: 'sol', name: 'Solana', symbol: 'SOL', icon: Sun, balance: 2, priceInINR: 12000, color: 'text-purple-500' },
-  { id: 'doge', name: 'Dogecoin', symbol: 'DOGE', icon: Dog, balance: 1000, priceInINR: 10, color: 'text-yellow-500' },
-  { id: 'bch', name: 'Bitcoin Cash', symbol: 'BCH', icon: Coins, balance: 0.5, priceInINR: 40000, color: 'text-green-700' },
-  { id: 'xrp', name: 'XRP', symbol: 'XRP', icon: BadgeX, balance: 200, priceInINR: 40 },
-  { id: 'trx', name: 'Tron', symbol: 'TRX', icon: Network, balance: 1500, priceInINR: 9, color: 'text-red-500' },
+  { id: 'inr', name: 'Indian Rupee', symbol: 'INR', icon: IndianRupee, balance: 15000.00, priceInINR: 1, color: 'text-green-500' }, 
+  { id: 'btc', name: 'Bitcoin', symbol: 'BTC', icon: Bitcoin, balance: 0.01, priceInINR: 5000000, color: 'text-orange-500' }, // Increased balance
+  { id: 'eth', name: 'Ethereum', symbol: 'ETH', icon: Sigma, balance: 0.5, priceInINR: 300000, color: 'text-gray-400' }, // Increased balance
+  { id: 'ltc', name: 'Litecoin', symbol: 'LTC', icon: Gem, balance: 10, priceInINR: 8000, color: 'text-slate-500' }, // Increased balance
+  { id: 'usdt', name: 'Tether', symbol: 'USDT', icon: DollarSign, balance: 500, priceInINR: 83, color: 'text-green-600' }, // Increased balance
+  { id: 'sol', name: 'Solana', symbol: 'SOL', icon: Sun, balance: 10, priceInINR: 12000, color: 'text-purple-500' }, // Increased balance
+  { id: 'doge', name: 'Dogecoin', symbol: 'DOGE', icon: Dog, balance: 5000, priceInINR: 10, color: 'text-yellow-500' }, // Increased balance
+  { id: 'bch', name: 'Bitcoin Cash', symbol: 'BCH', icon: Coins, balance: 1, priceInINR: 40000, color: 'text-green-700' }, // Increased balance
+  { id: 'xrp', name: 'XRP', symbol: 'XRP', icon: BadgeX, balance: 1000, priceInINR: 40 }, // Increased balance
+  { id: 'trx', name: 'Tron', symbol: 'TRX', icon: Network, balance: 5000, priceInINR: 9, color: 'text-red-500' }, // Increased balance
 ];
 
 export const useWalletStore = create<WalletState>((set, get) => ({
@@ -65,7 +65,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     set((state) => ({
       currencies: state.currencies.map((currency) =>
         currency.id === currencyId
-          ? { ...currency, balance: Math.max(0, currency.balance - amountToDeduct) } // Ensure balance doesn't go below 0
+          ? { ...currency, balance: Math.max(0, currency.balance - amountToDeduct) } 
           : currency
       ),
     }));
