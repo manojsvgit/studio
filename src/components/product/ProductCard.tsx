@@ -22,15 +22,13 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   useEffect(() => {
     setIsClient(true);
-    // Sync cart state after client mount
     const unsub = useCartStore.subscribe(
       (state) => setHydratedIsInCart(state.items.some(item => item.id === product.id)),
-      (state) => state.items // Correctly listen to changes in items array
+      (state) => state.items
     );
-    // Initial sync
-    setHydratedIsInCart(items.some(item => item.id === product.id)); // Use initial items from store
+    setHydratedIsInCart(useCartStore.getState().items.some(item => item.id === product.id));
     return () => unsub();
-  }, [items, product.id]); // Depend on items from store and product.id
+  }, [product.id]);
 
 
   const handleToggleCart = () => {
@@ -51,7 +49,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Card className="flex flex-col overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card">
+    <Card className="flex flex-col overflow-hidden rounded-lg shadow-lg hover:shadow-2xl transition-all duration-300 bg-card hover:-translate-y-1 transform">
       <CardHeader className="p-0 relative">
         {isClient ? (
           <Image
@@ -61,9 +59,10 @@ export default function ProductCard({ product }: ProductCardProps) {
             height={300}
             className="object-cover w-full h-48"
             data-ai-hint={product.dataAiHint || 'product image'}
+            
           />
         ) : (
-          <div className="w-full h-48 bg-muted flex items-center justify-center">
+          <div className="w-full h-48 bg-muted flex items-center justify-center animate-pulse">
             {/* Optional: add a spinner or placeholder icon here */}
           </div>
         )}
@@ -93,9 +92,8 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
           </Button>
         ) : (
-          // Placeholder button before client-side hydration
           <Button className="w-full" variant="default" disabled>
-            <div className="mr-2 h-4 w-4 bg-muted rounded animate-pulse" /> {/* Icon placeholder */}
+            <div className="mr-2 h-4 w-4 bg-muted rounded animate-pulse" />
              Loading...
           </Button>
         )}

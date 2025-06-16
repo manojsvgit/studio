@@ -37,6 +37,7 @@ import type { WalletCurrency } from '@/types/wallet';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
+
 const fiatDisplayOptions = [
   { value: 'USD', label: 'USD', Icon: DollarSign, color: 'text-green-500' },
   { value: 'EUR', label: 'EUR', Icon: Euro, color: 'text-blue-500' },
@@ -45,7 +46,7 @@ const fiatDisplayOptions = [
   { value: 'ARS', label: 'ARS', textSymbol: 'ARS$', color: 'text-sky-400' },
   { value: 'CAD', label: 'CAD', Icon: DollarSign, color: 'text-orange-500' },
   { value: 'CLP', label: 'CLP', textSymbol: 'CLP$', color: 'text-blue-400' },
-  { value: 'CNY', label: 'CNY', Icon: JapaneseYen, color: 'text-red-500' }, // Using Yen as proxy
+  { value: 'CNY', label: 'CNY', Icon: JapaneseYen, color: 'text-red-500' },
   { value: 'GHS', label: 'GHS', textSymbol: 'GH₵', color: 'text-green-400' },
   { value: 'IDR', label: 'IDR', textSymbol: 'Rp', color: 'text-red-400' },
   { value: 'KES', label: 'KES', textSymbol: 'KSh', color: 'text-muted-foreground' },
@@ -108,7 +109,7 @@ const AppHeader = () => {
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
 
-  const [selectedTipCurrency, setSelectedTipCurrency] = useState<WalletCurrency | null>(null);
+  const [selectedTipCurrencyId, setSelectedTipCurrencyId] = useState<string | null>(null);
   const [tipAmount, setTipAmount] = useState('');
   const [recipientPhoneNumber, setRecipientPhoneNumber] = useState('');
   const [tipError, setTipError] = useState<string | null>(null);
@@ -180,6 +181,10 @@ const AppHeader = () => {
     }
   }, [isClient, cryptoCurrenciesForPurchase, selectedCryptoToBuyId]);
 
+  const selectedTipCurrency = useMemo(() => {
+    return availableCryptoCurrenciesForTip.find(c => c.id === selectedTipCurrencyId) || null;
+  }, [availableCryptoCurrenciesForTip, selectedTipCurrencyId]);
+
   const filteredCurrencies = getFilteredCurrencies();
 
   const handleWithdraw = () => toast({ title: "Withdraw Action", description: "Withdraw functionality is not yet implemented." });
@@ -220,7 +225,7 @@ const AppHeader = () => {
       description: `Tip of ${amount.toFixed(selectedTipCurrency.symbol === 'BTC' || selectedTipCurrency.symbol === 'ETH' ? 8 : 4)} ${selectedTipCurrency.symbol} sent to ${recipientPhoneNumber} successfully.`,
     });
 
-    setSelectedTipCurrency(null);
+    setSelectedTipCurrencyId(null);
     setTipAmount('');
     setRecipientPhoneNumber('');
     setWalletDropdownOpen(false);
@@ -322,11 +327,11 @@ const AppHeader = () => {
                  </Button>
             </div>
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 bg-background/70 rounded-none p-1 h-11 border-b border-border">
-                <TabsTrigger value="overview" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Overview</TabsTrigger>
-                <TabsTrigger value="buy-crypto" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Buy Crypto</TabsTrigger>
-                <TabsTrigger value="tip" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Tip</TabsTrigger>
-                <TabsTrigger value="settings-tab" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Settings</TabsTrigger>
+               <TabsList className="grid w-full grid-cols-4 border-b border-border rounded-none h-auto p-0">
+                <TabsTrigger value="overview" className="text-xs py-2.5 data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:border-b-2 rounded-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-transparent data-[state=active]:shadow-none">Overview</TabsTrigger>
+                <TabsTrigger value="buy-crypto" className="text-xs py-2.5 data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:border-b-2 rounded-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-transparent data-[state=active]:shadow-none">Buy Crypto</TabsTrigger>
+                <TabsTrigger value="tip" className="text-xs py-2.5 data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:border-b-2 rounded-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-transparent data-[state=active]:shadow-none">Tip</TabsTrigger>
+                <TabsTrigger value="settings-tab" className="text-xs py-2.5 data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:border-b-2 rounded-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-transparent data-[state=active]:shadow-none">Settings</TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="p-3 max-h-[calc(70vh-10rem)] overflow-y-auto">
@@ -512,10 +517,9 @@ const AppHeader = () => {
                     <div>
                       <Label htmlFor="tip-currency" className="text-xs font-medium text-muted-foreground">Tip From Wallet</Label>
                       <Select
-                        value={selectedTipCurrency?.id || ''}
+                        value={selectedTipCurrencyId || ''}
                         onValueChange={(value) => {
-                          const newSelectedCrypto = availableCryptoCurrenciesForTip.find(c => c.id === value);
-                          setSelectedTipCurrency(newSelectedCrypto || null);
+                          setSelectedTipCurrencyId(value);
                           setTipError(null);
                         }}
                       >
