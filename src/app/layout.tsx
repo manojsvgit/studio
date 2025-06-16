@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import { SidebarProvider } from '@/components/ui/sidebar'; // Assuming this is the correct path
+import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
+import AppSidebar from '@/components/layout/AppSidebar';
+import AppHeader from '@/components/layout/AppHeader';
 
 export const metadata: Metadata = {
   title: 'WalmartChain',
@@ -27,9 +29,17 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="font-body antialiased">
+      <body className="font-body antialiased bg-background text-foreground">
         <SidebarProvider defaultOpen={true}>
-          {children}
+          <Sidebar>
+            <AppSidebar />
+          </Sidebar>
+          <SidebarInset>
+            <AppHeader />
+            <main className="flex-1 p-4 md:p-6">
+              {children}
+            </main>
+          </SidebarInset>
         </SidebarProvider>
         <Toaster />
       </body>
