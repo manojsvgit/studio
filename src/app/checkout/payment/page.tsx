@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input'; // Added Input for displaying amount
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { ChevronLeft, AlertTriangle, Info } from 'lucide-react';
@@ -25,14 +25,14 @@ const MOCK_NETWORKS = [
 ];
 
 const MOCK_CRYPTO_TRANSACTION_FEE_USD = 1.50; // Example fee in USD
+const USD_TO_INR_RATE = 83; // Example conversion rate
 
 export default function PaymentPage() {
   const router = useRouter();
   const { toast } = useToast();
   
   const { getCartTotal, items: cartItems, clearCart } = useCartStore();
-  // Ensure walletStore actions are correctly typed or used if needed for deduction later
-  const { currencies: walletCurrencies, selectedCurrencyId: defaultWalletCurrencyId } = useWalletStore();
+  const { currencies: walletCurrencies, selectedCurrencyId: defaultWalletCurrencyId, deductCurrencyBalance } = useWalletStore();
 
   const [isClient, setIsClient] = useState(false);
   const [cartTotalUSD, setCartTotalUSD] = useState(0);
@@ -56,10 +56,12 @@ export default function PaymentPage() {
       router.push('/products');
     }
     
-    // Pre-select a crypto if available
     if (availableCryptoCurrencies.length > 0 && !selectedCrypto) {
-      const defaultSelectedCrypto = availableCryptoCurrencies.find(c => c.id === defaultWalletCurrencyId) || availableCryptoCurrencies[0];
-      setSelectedCrypto(defaultSelectedCrypto);
+      const defaultSelected = availableCryptoCurrencies.find(c => c.id === defaultWalletCurrencyId && c.symbol !== 'INR') || 
+                              availableCryptoCurrencies.find(c => c.symbol !== 'INR'); // Fallback to first non-INR crypto
+      if (defaultSelected) {
+        setSelectedCrypto(defaultSelected);
+      }
     }
 
   }, [getCartTotal, cartItems, router, toast, availableCryptoCurrencies, defaultWalletCurrencyId, selectedCrypto]);
@@ -74,8 +76,8 @@ export default function PaymentPage() {
       return;
     }
 
-    const amountInSelectedCrypto = cartTotalUSD / (selectedCrypto.priceInINR / 83); // Assuming 1 USD = 83 INR for conversion
-    const transactionFeeInSelectedCrypto = MOCK_CRYPTO_TRANSACTION_FEE_USD / (selectedCrypto.priceInINR / 83);
+    const amountInSelectedCrypto = cartTotalUSD / (selectedCrypto.priceInINR / USD_TO_INR_RATE);
+    const transactionFeeInSelectedCrypto = MOCK_CRYPTO_TRANSACTION_FEE_USD / (selectedCrypto.priceInINR / USD_TO_INR_RATE);
     const totalPayableCrypto = amountInSelectedCrypto + transactionFeeInSelectedCrypto;
     
     if (selectedCrypto.balance < totalPayableCrypto) {
@@ -87,20 +89,17 @@ export default function PaymentPage() {
       return;
     }
 
-    // Placeholder for actual payment processing logic
+    // Actual payment processing logic
+    deductCurrencyBalance(selectedCrypto.id, totalPayableCrypto);
+    clearCart();
+    
     toast({
-      title: 'Payment Processing (Simulated)',
-      description: `Paying ${totalPayableCrypto.toFixed(6)} ${selectedCrypto.symbol} for your order.`,
+      title: 'Payment Successful!',
+      description: `Paid ${totalPayableCrypto.toFixed(6)} ${selectedCrypto.symbol}. Your order has been placed. Redirecting...`,
     });
     
-    // Simulate successful payment for now
-    // clearCart(); // We will implement actual deduction and cart clearing later
-    // router.push('/orders/success'); 
-    // For now, just show a success toast
-     toast({
-      title: 'Payment Successful (Simulated)',
-      description: `Your order has been placed. Thank you for shopping with WalmartChain!`,
-    });
+    // router.push('/orders/success'); // Uncomment when success page is ready
+     setTimeout(() => router.push('/products'), 2000); 
   };
 
   const handleLocalPay = () => {
@@ -110,7 +109,7 @@ export default function PaymentPage() {
     });
   };
 
-  if (!isClient || (cartTotalUSD === 0 && cartItems.length > 0) ) { // cartItems.length > 0 condition to avoid flicker on initial load if cart is truly empty
+  if (!isClient || (cartTotalUSD === 0 && cartItems.length > 0) ) {
     return (
         <div className="flex flex-col items-center justify-center h-screen">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -119,10 +118,9 @@ export default function PaymentPage() {
     );
   }
   
-  const amountInSelectedCrypto = selectedCrypto ? cartTotalUSD / (selectedCrypto.priceInINR / 83) : 0; // Assuming 1 USD = 83 INR
-  const transactionFeeInSelectedCrypto = selectedCrypto ? MOCK_CRYPTO_TRANSACTION_FEE_USD / (selectedCrypto.priceInINR / 83) : 0;
+  const amountInSelectedCrypto = selectedCrypto ? cartTotalUSD / (selectedCrypto.priceInINR / USD_TO_INR_RATE) : 0;
+  const transactionFeeInSelectedCrypto = selectedCrypto ? MOCK_CRYPTO_TRANSACTION_FEE_USD / (selectedCrypto.priceInINR / USD_TO_INR_RATE) : 0;
   const totalPayableCrypto = amountInSelectedCrypto + transactionFeeInSelectedCrypto;
-
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-0 max-w-lg">
@@ -206,28 +204,28 @@ export default function PaymentPage() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="amount-crypto" className="text-sm font-medium">Amount to Pay (USD)</Label>
-                  <Input id="amount-crypto" value={`$${cartTotalUSD.toFixed(2)}`} readOnly className="mt-1 bg-input border-border text-lg font-semibold" />
+                  <Label htmlFor="amount-usd" className="text-sm font-medium">Amount to Pay (USD)</Label>
+                  <Input id="amount-usd" value={`$${cartTotalUSD.toFixed(2)}`} readOnly className="mt-1 bg-input border-border text-lg font-semibold" />
                 </div>
 
                 {selectedCrypto && (
-                  <Card className="bg-secondary/30 p-4 space-y-2">
+                  <Card className="bg-secondary/30 p-4 space-y-2 border border-border">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Order Total ({selectedCrypto.symbol}):</span>
-                      <span className="font-medium text-card-foreground">{amountInSelectedCrypto.toFixed(6)}</span>
+                      <span className="font-medium text-card-foreground">{amountInSelectedCrypto.toFixed(selectedCrypto.symbol === 'BTC' || selectedCrypto.symbol === 'ETH' ? 8 : 6)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Est. Transaction Fee ({selectedCrypto.symbol}):</span>
-                      <span className="font-medium text-card-foreground">{transactionFeeInSelectedCrypto.toFixed(6)}</span>
+                      <span className="font-medium text-card-foreground">{transactionFeeInSelectedCrypto.toFixed(selectedCrypto.symbol === 'BTC' || selectedCrypto.symbol === 'ETH' ? 8 : 6)}</span>
                     </div>
                     <Separator className="my-1 bg-border"/>
                     <div className="flex justify-between text-md font-semibold">
                       <span className="text-accent">Total Payable ({selectedCrypto.symbol}):</span>
-                      <span className="text-accent">{totalPayableCrypto.toFixed(6)}</span>
+                      <span className="text-accent">{totalPayableCrypto.toFixed(selectedCrypto.symbol === 'BTC' || selectedCrypto.symbol === 'ETH' ? 8 : 6)}</span>
                     </div>
                      {selectedCrypto.balance < totalPayableCrypto && (
                         <div className="flex items-center text-xs text-destructive mt-1 p-2 bg-destructive/10 rounded-md">
-                            <AlertTriangle className="h-4 w-4 mr-2"/> Insufficient {selectedCrypto.symbol} balance.
+                            <AlertTriangle className="h-4 w-4 mr-2"/> Insufficient {selectedCrypto.symbol} balance. Available: {selectedCrypto.balance.toFixed(selectedCrypto.symbol === 'BTC' || selectedCrypto.symbol === 'ETH' ? 8 : 4)}
                         </div>
                     )}
                   </Card>
@@ -236,7 +234,7 @@ export default function PaymentPage() {
                     <Info size={16} className="mr-2 mt-0.5 text-accent shrink-0"/>
                     <div>
                         Ensure you select the correct network. Sending funds to the wrong network may result in permanent loss.
-                        Transaction fees are estimates and may vary.
+                        Transaction fees are estimates and may vary. 1 USD ≈ {USD_TO_INR_RATE} INR for calculations.
                     </div>
                 </div>
               </div>
@@ -246,10 +244,10 @@ export default function PaymentPage() {
               <div className="space-y-6">
                 <div>
                   <Label htmlFor="amount-inr" className="text-sm font-medium">Amount to Pay (INR)</Label>
-                  <Input id="amount-inr" value={`₹${(cartTotalUSD * 83).toFixed(2)}`} readOnly className="mt-1 bg-input border-border text-lg font-semibold" />
-                   <p className="text-xs text-muted-foreground mt-1">(Assuming 1 USD = ₹83)</p>
+                  <Input id="amount-inr" value={`₹${(cartTotalUSD * USD_TO_INR_RATE).toFixed(2)}`} readOnly className="mt-1 bg-input border-border text-lg font-semibold" />
+                   <p className="text-xs text-muted-foreground mt-1">(Assuming 1 USD = ₹{USD_TO_INR_RATE})</p>
                 </div>
-                <Card className="bg-secondary/30 p-4">
+                <Card className="bg-secondary/30 p-4 border border-border">
                    <p className="text-muted-foreground text-center">
                     Payment via local currency (UPI, Cards, etc.) will be available soon.
                   </p>
@@ -259,19 +257,24 @@ export default function PaymentPage() {
           </Tabs>
         </CardContent>
         <CardFooter className="mt-6 p-6 border-t border-border">
-          {/* The button will depend on the active tab. For simplicity, we can have a single button that checks active tab or two separate buttons shown conditionally */}
-          <Tabs defaultValue="crypto" className="w-full">
-             <TabsContent value="crypto" className="mt-0">
-                <Button onClick={handleCryptoPay} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" size="lg" disabled={!selectedCrypto || (selectedCrypto && selectedCrypto.balance < totalPayableCrypto) || availableCryptoCurrencies.length === 0}>
-                    Pay with {selectedCrypto?.symbol || 'Crypto'}
-                </Button>
-             </TabsContent>
-             <TabsContent value="local" className="mt-0">
-                <Button onClick={handleLocalPay} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" size="lg">
-                    Pay with INR
-                </Button>
-             </TabsContent>
-          </Tabs>
+          {/* The button will depend on the active tab. */}
+            <Tabs defaultValue="crypto" className="w-full"> {/* Outer Tabs to control button visibility based on selected payment method */}
+              <TabsContent value="crypto" className="mt-0">
+                  <Button 
+                    onClick={handleCryptoPay} 
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
+                    size="lg" 
+                    disabled={!selectedCrypto || availableCryptoCurrencies.length === 0 || (selectedCrypto && selectedCrypto.balance < totalPayableCrypto)}
+                  >
+                      Pay with {selectedCrypto?.symbol || 'Crypto'}
+                  </Button>
+              </TabsContent>
+              <TabsContent value="local" className="mt-0">
+                  <Button onClick={handleLocalPay} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" size="lg">
+                      Pay with INR
+                  </Button>
+              </TabsContent>
+            </Tabs>
         </CardFooter>
       </Card>
     </div>
