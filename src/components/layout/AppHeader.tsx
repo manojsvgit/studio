@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, type ChangeEvent } from 'react';
+import { useState, useEffect, type ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,9 +27,9 @@ import { useToast } from '@/hooks/use-toast';
 import type { WalletCurrency } from '@/types/wallet';
 
 const AppHeader = () => {
-  const { 
-    searchTerm, 
-    setSearchTerm, 
+  const {
+    searchTerm,
+    setSearchTerm,
     getFilteredCurrencies,
     selectedCurrencyId,
     setSelectedCurrencyId,
@@ -38,14 +38,14 @@ const AppHeader = () => {
     deductCurrencyBalance,
     addCurrencyBalance,
   } = useWalletStore();
-  
+
   const { getCartItemCount } = useCartStore();
   const { toast } = useToast();
 
   const [hydratedCartItemCount, setHydratedCartItemCount] = useState<number>(0);
   const [isClient, setIsClient] = useState(false);
   const [hydratedWalletDisplay, setHydratedWalletDisplay] = useState<{ iconSymbol: string, text: string, color?: string } | null>(null);
-  
+
   const [selectedTipCurrency, setSelectedTipCurrency] = useState<WalletCurrency | null>(null);
   const [tipAmount, setTipAmount] = useState('');
   const [recipientPhoneNumber, setRecipientPhoneNumber] = useState('');
@@ -56,25 +56,31 @@ const AppHeader = () => {
   const [buyFiatCurrency, setBuyFiatCurrency] = useState('INR'); // Defaulting to INR
   const [buyError, setBuyError] = useState<string | null>(null);
 
-
   const totalWalletBalanceINR = getTotalPortfolioValueINR();
-  const availableCryptoCurrenciesForTip = walletCurrencies.filter(c => c.balance > 0 && c.symbol !== 'INR');
-  const cryptoCurrenciesForPurchase = walletCurrencies.filter(c => c.symbol !== 'INR');
+
+  const availableCryptoCurrenciesForTip = useMemo(() => {
+    return walletCurrencies.filter(c => c.balance > 0 && c.symbol !== 'INR');
+  }, [walletCurrencies]);
+
+  const cryptoCurrenciesForPurchase = useMemo(() => {
+    return walletCurrencies.filter(c => c.symbol !== 'INR');
+  }, [walletCurrencies]);
 
 
+  // Effect for client-side flags and store subscriptions
   useEffect(() => {
-    setIsClient(true); 
+    setIsClient(true);
 
     const syncCartCount = () => {
       setHydratedCartItemCount(useCartStore.getState().getCartItemCount());
     };
-    syncCartCount();
+    syncCartCount(); // Initial sync
     const unsubscribeCart = useCartStore.subscribe(syncCartCount);
 
     const syncWalletDisplay = () => {
       const storeState = useWalletStore.getState();
-      const currentActiveCurrency = storeState.currencies.find(c => c.id === storeState.selectedCurrencyId) || 
-                                   storeState.currencies.find(c => c.symbol === 'INR') || 
+      const currentActiveCurrency = storeState.currencies.find(c => c.id === storeState.selectedCurrencyId) ||
+                                   storeState.currencies.find(c => c.symbol === 'INR') ||
                                    (storeState.currencies.length > 0 ? storeState.currencies[0] : null);
       if (currentActiveCurrency) {
         setHydratedWalletDisplay({
@@ -86,21 +92,26 @@ const AppHeader = () => {
          setHydratedWalletDisplay({ iconSymbol: 'default', text: 'Wallet', color: 'text-primary-foreground' });
       }
     };
-
-    syncWalletDisplay(); 
+    syncWalletDisplay(); // Initial sync
     const unsubscribeWallet = useWalletStore.subscribe(syncWalletDisplay);
-
-    // Set default crypto to buy if not already selected
-    if (cryptoCurrenciesForPurchase.length > 0 && !selectedCryptoToBuyId) {
-        setSelectedCryptoToBuyId(cryptoCurrenciesForPurchase[0].id);
-    }
-
 
     return () => {
       unsubscribeCart();
       unsubscribeWallet();
     };
-  }, [cryptoCurrenciesForPurchase, selectedCryptoToBuyId]); 
+  }, []); // Runs once on mount
+
+  // Effect for setting default crypto to buy
+  useEffect(() => {
+    if (isClient && cryptoCurrenciesForPurchase.length > 0 && !selectedCryptoToBuyId) {
+      const firstCryptoId = cryptoCurrenciesForPurchase[0].id;
+      // Only set if the current value is actually null/undefined
+      if (selectedCryptoToBuyId !== firstCryptoId) {
+           setSelectedCryptoToBuyId(firstCryptoId);
+      }
+    }
+  }, [isClient, cryptoCurrenciesForPurchase, selectedCryptoToBuyId, setSelectedCryptoToBuyId]);
+
 
   const filteredCurrencies = getFilteredCurrencies();
 
@@ -110,9 +121,9 @@ const AppHeader = () => {
 
   const handleTipAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-     if (/^\d*\.?\d*$/.test(value)) { 
+     if (/^\d*\.?\d*$/.test(value)) {
       setTipAmount(value);
-      setTipError(null); 
+      setTipError(null);
     }
   };
 
@@ -141,7 +152,7 @@ const AppHeader = () => {
       title: "Tip Sent!",
       description: `Tip of ${amount.toFixed(selectedTipCurrency.symbol === 'BTC' || selectedTipCurrency.symbol === 'ETH' ? 8 : 4)} ${selectedTipCurrency.symbol} sent to ${recipientPhoneNumber} successfully.`,
     });
-    
+
     setSelectedTipCurrency(null);
     setTipAmount('');
     setRecipientPhoneNumber('');
@@ -170,8 +181,6 @@ const AppHeader = () => {
       return;
     }
 
-    // Assuming INR is the only fiat currency for now
-    // For mock purposes, let's say user's INR balance is sufficient (not checking actual INR balance)
     const cryptoAmountBought = amountFiat / cryptoToBuy.priceInINR;
     addCurrencyBalance(cryptoToBuy.id, cryptoAmountBought);
 
@@ -181,22 +190,21 @@ const AppHeader = () => {
     });
 
     setBuyAmountInFiat('');
-    // Optionally reset selectedCryptoToBuyId or keep it for next purchase
   };
-  
+
   const isBuyButtonDisabled = !selectedCryptoToBuyId || !buyAmountInFiat || parseFloat(buyAmountInFiat) <= 0;
 
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
-      <div className="flex items-center gap-2"> 
+      <div className="flex items-center gap-2">
       </div>
 
-      <div className="flex flex-1 justify-center"> 
+      <div className="flex flex-1 justify-center">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="default" 
+            <Button
+              variant="default"
               className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[160px] flex items-center justify-between px-3"
             >
               <div className="flex items-center overflow-hidden">
@@ -209,18 +217,17 @@ const AppHeader = () => {
                   </>
                 ) : (
                   <>
-                    {isClient ? <WalletIcon className="mr-2 h-4 w-4" /> : <div className="mr-2 h-4 w-4 bg-muted rounded" /> }
+                    {isClient ? <WalletIcon className="mr-2 h-4 w-4" /> : <div className="mr-2 h-4 w-4 bg-muted rounded" />}
                     <span className="truncate text-sm">Wallet</span>
                   </>
                 )}
               </div>
-              {isClient ? <ChevronDown className="ml-2 h-4 w-4 opacity-80 flex-shrink-0" /> : <div className="ml-2 h-4 w-4 opacity-80 flex-shrink-0 bg-muted rounded" /> }
+              {isClient ? <ChevronDown className="ml-2 h-4 w-4 opacity-80 flex-shrink-0" /> : <div className="ml-2 h-4 w-4 opacity-80 flex-shrink-0 bg-muted rounded" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-80 md:w-96 p-0 bg-card border-border shadow-xl" align="center">
              <div className="flex justify-between items-center p-3 border-b border-border">
                 <h3 className="text-lg font-semibold text-card-foreground">Wallet</h3>
-                {/* Placeholder for X close button if needed, not typically in DropdownMenu */}
             </div>
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="grid w-full grid-cols-4 bg-background/70 rounded-none p-1 h-11 border-b border-border">
@@ -229,8 +236,8 @@ const AppHeader = () => {
                 <TabsTrigger value="tip" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Tip</TabsTrigger>
                 <TabsTrigger value="settings-tab" className="text-xs data-[state=active]:border-b-primary data-[state=active]:border-b-2 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none">Settings</TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="overview" className="p-3 max-h-[calc(70vh-5rem)] overflow-y-auto">
+
+              <TabsContent value="overview" className="p-3 max-h-[calc(70vh-10rem)] overflow-y-auto">
                 <div className="space-y-4">
                   <Card className="bg-secondary/30 border-border">
                     <CardHeader className="p-3">
@@ -240,7 +247,7 @@ const AppHeader = () => {
                       </CardTitle>
                     </CardHeader>
                   </Card>
-                  
+
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -266,11 +273,11 @@ const AppHeader = () => {
                           <p className="p-3 text-xs text-center text-muted-foreground">No currencies found.</p>
                         ) : (
                           filteredCurrencies.map((currency) => (
-                            <DropdownMenuItem 
-                              key={currency.id} 
+                            <DropdownMenuItem
+                              key={currency.id}
                               className="flex justify-between items-center p-2 hover:bg-card/50 focus:bg-card/50 cursor-pointer rounded-md"
                               onSelect={() => setSelectedCurrencyId(currency.id)}
-                              disabled={currency.id === selectedCurrencyId} 
+                              disabled={currency.id === selectedCurrencyId}
                             >
                               <div className="flex items-center gap-2">
                                 <CryptoCurrencyIcon symbol={currency.symbol} className={`h-5 w-5 ${currency.color || 'text-card-foreground'}`} />
@@ -293,7 +300,7 @@ const AppHeader = () => {
                       </ScrollArea>
                     </CardContent>
                   </Card>
-                  
+
                   <div className="grid grid-cols-2 gap-3">
                     <Button variant="outline" size="sm" onClick={handleWithdraw} className="w-full border-primary text-primary hover:bg-primary/10 text-xs h-9">Withdraw</Button>
                     <Button variant="default" size="sm" onClick={handleDeposit} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-9">Deposit</Button>
@@ -314,7 +321,7 @@ const AppHeader = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="buy-crypto" className="p-4 max-h-[calc(70vh-5rem)] overflow-y-auto">
+              <TabsContent value="buy-crypto" className="p-4 max-h-[calc(70vh-10rem)] overflow-y-auto">
                 <Card className="bg-secondary/30 border-border shadow-none">
                     <CardHeader className="p-4 pb-2">
                         <CardTitle className="text-lg text-card-foreground">Buy Crypto</CardTitle>
@@ -372,7 +379,6 @@ const AppHeader = () => {
                                                 <CryptoCurrencyIcon symbol="INR" className="h-4 w-4 text-green-500"/> INR
                                             </div>
                                         </SelectItem>
-                                        {/* Add other fiat currencies here if needed */}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -401,7 +407,7 @@ const AppHeader = () => {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="tip" className="p-4 max-h-[calc(70vh-5rem)] overflow-y-auto">
+              <TabsContent value="tip" className="p-4 max-h-[calc(70vh-10rem)] overflow-y-auto">
                 <Card className="bg-secondary/30 border-border shadow-none">
                   <CardHeader className="p-4 pb-2">
                     <CardTitle className="text-lg text-card-foreground">Send a Tip</CardTitle>
@@ -485,7 +491,7 @@ const AppHeader = () => {
                         value={recipientPhoneNumber}
                         onChange={(e) => {
                           setRecipientPhoneNumber(e.target.value);
-                          setTipError(null); 
+                          setTipError(null);
                         }}
                         placeholder="Enter recipient's phone number"
                         className="mt-1 bg-input border-border h-11"
@@ -499,7 +505,7 @@ const AppHeader = () => {
                       </div>
                     )}
 
-                    <Button 
+                    <Button
                       className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 mt-2"
                       onClick={handleSendTip}
                       disabled={isTipButtonDisabled}
@@ -510,14 +516,13 @@ const AppHeader = () => {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="settings-tab" className="p-4 max-h-[calc(70vh-5rem)] overflow-y-auto">
+              <TabsContent value="settings-tab" className="p-4 max-h-[calc(70vh-10rem)] overflow-y-auto">
                 <Card className="bg-secondary/30 border-border shadow-none">
                   <CardHeader className="p-4 pb-2">
                       <CardTitle className="text-lg text-card-foreground">Wallet Settings</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4 p-4">
                     <p className="text-muted-foreground text-center text-sm">Specific wallet account settings and preferences will appear here.</p>
-                     {/* Example: Add wallet-specific settings like preferred display currency, notification settings for wallet activity, etc. */}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -526,13 +531,13 @@ const AppHeader = () => {
         </DropdownMenu>
       </div>
 
-      <div className="flex items-center gap-2"> 
+      <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" aria-label="Notifications" className="text-foreground hover:bg-accent hover:text-accent-foreground">
-          {isClient ? <Bell className="h-5 w-5" /> : <div className="h-5 w-5 bg-muted rounded" /> }
+          {isClient ? <Bell className="h-5 w-5" /> : <div className="h-5 w-5 bg-muted rounded" />}
         </Button>
         <Button asChild variant="ghost" size="icon" aria-label="Shopping Cart" className="text-foreground hover:bg-accent hover:text-accent-foreground relative">
           <Link href="/cart">
-            {isClient ? <ShoppingCartIcon className="h-5 w-5" /> : <div className="h-5 w-5 bg-muted rounded" /> }
+            {isClient ? <ShoppingCartIcon className="h-5 w-5" /> : <div className="h-5 w-5 bg-muted rounded" />}
             {isClient && hydratedCartItemCount > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
                 {hydratedCartItemCount}
@@ -543,7 +548,7 @@ const AppHeader = () => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="User Profile" className="text-foreground hover:bg-accent hover:text-accent-foreground">
-              {isClient ? <UserCircle className="h-6 w-6" /> : <div className="h-6 w-6 bg-muted rounded-full" /> }
+              {isClient ? <UserCircle className="h-6 w-6" /> : <div className="h-6 w-6 bg-muted rounded-full" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56 bg-card border-border shadow-xl" align="end">
@@ -551,7 +556,7 @@ const AppHeader = () => {
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem asChild className="hover:bg-secondary cursor-pointer focus:bg-secondary">
               <Link href="/settings" className="flex items-center w-full">
-                {isClient ? <Settings className="mr-2 h-4 w-4 text-muted-foreground" /> : <div className="mr-2 h-4 w-4 bg-muted rounded"/> }
+                {isClient ? <Settings className="mr-2 h-4 w-4 text-muted-foreground" /> : <div className="mr-2 h-4 w-4 bg-muted rounded"/>}
                 <span className="text-sm text-card-foreground">Settings</span>
               </Link>
             </DropdownMenuItem>
@@ -570,3 +575,4 @@ const AppHeader = () => {
 };
 
 export default AppHeader;
+
