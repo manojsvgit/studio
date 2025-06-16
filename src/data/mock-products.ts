@@ -163,4 +163,8 @@ export const mockProducts: Product[] = [
     inStock: true,
     stockCount: 20,
     createdAt: new Date().toISOString(),
-    updatedAt: new D<ctrl63>
+    updatedAt: new Date().toISOString(),
+    slug: formatSlug('Modern Sofa Couch'),
+    dataAiHint: 'sofa couch',
+  },
+];
