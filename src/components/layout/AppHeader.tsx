@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Bell, UserCircle, Wallet, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon } from 'lucide-react';
 import { useWalletStore } from '@/stores/wallet-store';
+import { useCartStore } from '@/stores/cart-store'; // Import cart store
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
 
 const AppHeader = () => {
@@ -26,6 +28,27 @@ const AppHeader = () => {
     selectedCurrencyId, 
     setSelectedCurrencyId 
   } = useWalletStore();
+  
+  // Cart item count state
+  const { getCartItemCount } = useCartStore();
+  const [hydratedCartItemCount, setHydratedCartItemCount] = useState<number>(0);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true); // Component has mounted on the client
+
+    const syncCartCount = () => {
+      setHydratedCartItemCount(getCartItemCount());
+    };
+
+    syncCartCount(); // Initial sync
+
+    const unsubscribeCart = useCartStore.subscribe(syncCartCount); // Subscribe to cart changes
+
+    return () => {
+      unsubscribeCart(); // Cleanup subscription
+    };
+  }, [getCartItemCount]);
   
   const filteredCurrencies = getFilteredCurrencies();
   const activeCurrency = currencies.find(c => c.id === selectedCurrencyId) || 
@@ -109,9 +132,14 @@ const AppHeader = () => {
         <Button variant="ghost" size="icon" aria-label="Notifications" className="text-foreground hover:bg-accent hover:text-accent-foreground">
           <Bell className="h-5 w-5" />
         </Button>
-        <Button asChild variant="ghost" size="icon" aria-label="Shopping Cart" className="text-foreground hover:bg-accent hover:text-accent-foreground">
+        <Button asChild variant="ghost" size="icon" aria-label="Shopping Cart" className="text-foreground hover:bg-accent hover:text-accent-foreground relative">
           <Link href="/cart">
             <ShoppingCartIcon className="h-5 w-5" />
+            {isClient && hydratedCartItemCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
+                {hydratedCartItemCount}
+              </span>
+            )}
           </Link>
         </Button>
         <DropdownMenu>
