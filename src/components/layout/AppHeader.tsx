@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+// Removed SidebarTrigger
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,10 +24,8 @@ const AppHeader = () => {
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
-      <div className="flex items-center gap-2"> {/* Left items */}
-        <div className="md:hidden">
-          <SidebarTrigger />
-        </div>
+      <div className="flex items-center gap-2"> {/* Left items - Was SidebarTrigger placeholder */}
+        {/* Placeholder for potential future left-aligned items if needed */}
       </div>
 
       <div className="flex flex-1 justify-center"> {/* Center item: Wallet Dropdown */}
