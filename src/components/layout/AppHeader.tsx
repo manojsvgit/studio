@@ -6,7 +6,6 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, UserCircle, Wallet, Search, Settings, ChevronDown, LogOut } from 'lucide-react';
+import { Bell, UserCircle, Wallet, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon } from 'lucide-react';
 import { useWalletStore } from '@/stores/wallet-store';
 import CryptoCurrencyIcon from '@/components/icons/CryptoCurrencyIcons';
 
@@ -83,6 +82,11 @@ const AppHeader = () => {
       <div className="flex items-center gap-2"> {/* Right items */}
         <Button variant="ghost" size="icon" aria-label="Notifications" className="text-foreground hover:bg-accent hover:text-accent-foreground">
           <Bell className="h-5 w-5" />
+        </Button>
+        <Button asChild variant="ghost" size="icon" aria-label="Shopping Cart" className="text-foreground hover:bg-accent hover:text-accent-foreground">
+          <Link href="/cart">
+            <ShoppingCartIcon className="h-5 w-5" />
+          </Link>
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -8,13 +9,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { HomeIcon, ShoppingBag, ShoppingCart, Wallet, Package } from 'lucide-react';
+import { HomeIcon, ShoppingBag, Wallet, Package } from 'lucide-react'; // Removed ShoppingCartIcon
 
 const AppSidebar = () => {
   const menuItems = [
     { href: '/', label: 'Home', icon: HomeIcon, tooltip: 'Dashboard' },
     { href: '/products', label: 'Products', icon: ShoppingBag, tooltip: 'Browse Products' },
-    { href: '/cart', label: 'Cart', icon: ShoppingCart, tooltip: 'Shopping Cart' },
     { href: '/wallet', label: 'Wallet', icon: Wallet, tooltip: 'Crypto Wallet' },
     { href: '/orders', label: 'Orders', icon: Package, tooltip: 'Track Orders' },
   ];
@@ -47,7 +47,6 @@ const AppSidebar = () => {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      {/* SidebarFooter with Settings and Logout is removed */}
     </>
   );
 };
