@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useCartStore } from '@/stores/cart-store';
+import type { CartItem } from '@/types/cart';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -12,27 +13,33 @@ import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 
 export default function CartPage() {
-  const { items, removeFromCart, updateQuantity, getCartTotal, clearCart, getCartItemCount } = useCartStore();
+  // Note: We don't destructure `items` directly from useCartStore for direct rendering
+  // to better manage hydration. Actions can be destructured.
+  const { removeFromCart, updateQuantity, clearCart, getCartTotal, getCartItemCount } = useCartStore();
   const { toast } = useToast();
-  
-  // Hydration-safe state for cart data
-  const [hydratedItems, setHydratedItems] = useState(useCartStore.getState().items);
-  const [hydratedTotal, setHydratedTotal] = useState(useCartStore.getState().getCartTotal());
-  const [hydratedItemCount, setHydratedItemCount] = useState(useCartStore.getState().getCartItemCount());
+
+  // State to hold cart data that is safe for hydration
+  const [hydratedItems, setHydratedItems] = useState<CartItem[]>([]);
+  const [hydratedTotal, setHydratedTotal] = useState<number>(0);
+  const [hydratedItemCount, setHydratedItemCount] = useState<number>(0);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = useCartStore.subscribe(
-      (state) => {
-        setHydratedItems(state.items);
-        setHydratedTotal(state.getCartTotal());
-        setHydratedItemCount(state.getCartItemCount());
-      }
-    );
-    // Initial sync
-    setHydratedItems(useCartStore.getState().items);
-    setHydratedTotal(useCartStore.getState().getCartTotal());
-    setHydratedItemCount(useCartStore.getState().getCartItemCount());
-    return () => unsubscribe();
+    setIsClient(true); // Component has mounted on the client
+
+    // Function to synchronize local component state with the Zustand store state
+    const syncWithStore = () => {
+      const state = useCartStore.getState();
+      setHydratedItems(state.items);
+      setHydratedTotal(state.getCartTotal());
+      setHydratedItemCount(state.getCartItemCount());
+    };
+
+    syncWithStore(); // Initial sync when component mounts on client
+
+    const unsubscribe = useCartStore.subscribe(syncWithStore); // Subscribe to subsequent store changes
+
+    return () => unsubscribe(); // Cleanup subscription on unmount
   }, []);
 
 
@@ -46,13 +53,14 @@ export default function CartPage() {
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number, productName: string) => {
-    updateQuantity(productId, quantity);
+    updateQuantity(productId, quantity); // Store logic handles removal if quantity <= 0
      if (quantity > 0) {
       toast({
         title: "Quantity Updated",
         description: `Quantity for ${productName} updated to ${quantity}.`,
       });
     } else {
+       // This toast is shown if the quantity was reduced to 0 or less from the cart page UI
        toast({
         title: "Item Removed",
         description: `${productName} has been removed from your cart.`,
@@ -68,6 +76,11 @@ export default function CartPage() {
       description: "All items have been removed from your cart.",
       variant: "destructive",
     });
+  }
+
+  if (!isClient) {
+    // Render nothing or a loading skeleton on the server and during initial client render before hydration
+    return null; // Or a loading spinner, or basic empty cart structure
   }
 
   if (hydratedItemCount === 0) {
@@ -152,15 +165,15 @@ export default function CartPage() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col md:flex-row justify-between items-center gap-4 p-6 border-t border-border">
-           <Button 
-            variant="outline" 
+           <Button
+            variant="outline"
             onClick={handleClearCart}
             className="w-full md:w-auto border-destructive text-destructive hover:bg-destructive/10"
           >
             <Trash2Icon className="mr-2 h-4 w-4" /> Clear Cart
           </Button>
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={() => toast({ title: "Coming Soon!", description: "Checkout functionality is not yet implemented."})}
           >

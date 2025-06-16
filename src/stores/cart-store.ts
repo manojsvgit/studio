@@ -56,8 +56,8 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: 'walmartchain-cart-storage', 
-      storage: createJSONStorage(() => localStorage), 
+      name: 'walmartchain-cart-storage',
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );

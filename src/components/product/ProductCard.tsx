@@ -45,7 +45,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         <p className="text-xl font-bold text-accent mb-2">${product.price.toFixed(2)}</p>
       </CardContent>
       <CardFooter className="p-4 border-t border-border">
-        <Button 
+        <Button
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
           onClick={handleAddToCart}
         >
