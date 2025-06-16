@@ -8,26 +8,24 @@ import type { CartItem } from '@/types/cart';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { MinusIcon, PlusIcon, Trash2Icon, ShoppingCartIcon } from 'lucide-react';
+import { MinusIcon, PlusIcon, Trash2Icon, ShoppingCartIcon, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
 export default function CartPage() {
-  // Note: We don't destructure `items` directly from useCartStore for direct rendering
-  // to better manage hydration. Actions can be destructured.
   const { removeFromCart, updateQuantity, clearCart, getCartTotal, getCartItemCount } = useCartStore();
   const { toast } = useToast();
+  const router = useRouter();
 
-  // State to hold cart data that is safe for hydration
   const [hydratedItems, setHydratedItems] = useState<CartItem[]>([]);
   const [hydratedTotal, setHydratedTotal] = useState<number>(0);
   const [hydratedItemCount, setHydratedItemCount] = useState<number>(0);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true); // Component has mounted on the client
+    setIsClient(true); 
 
-    // Function to synchronize local component state with the Zustand store state
     const syncWithStore = () => {
       const state = useCartStore.getState();
       setHydratedItems(state.items);
@@ -35,11 +33,11 @@ export default function CartPage() {
       setHydratedItemCount(state.getCartItemCount());
     };
 
-    syncWithStore(); // Initial sync when component mounts on client
+    syncWithStore(); 
 
-    const unsubscribe = useCartStore.subscribe(syncWithStore); // Subscribe to subsequent store changes
+    const unsubscribe = useCartStore.subscribe(syncWithStore); 
 
-    return () => unsubscribe(); // Cleanup subscription on unmount
+    return () => unsubscribe(); 
   }, []);
 
 
@@ -53,14 +51,13 @@ export default function CartPage() {
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number, productName: string) => {
-    updateQuantity(productId, quantity); // Store logic handles removal if quantity <= 0
+    updateQuantity(productId, quantity); 
      if (quantity > 0) {
       toast({
         title: "Quantity Updated",
         description: `Quantity for ${productName} updated to ${quantity}.`,
       });
     } else {
-       // This toast is shown if the quantity was reduced to 0 or less from the cart page UI
        toast({
         title: "Item Removed",
         description: `${productName} has been removed from your cart.`,
@@ -78,9 +75,20 @@ export default function CartPage() {
     });
   }
 
+  const handleProceedToPayment = () => {
+    if (hydratedItemCount > 0) {
+      router.push('/checkout/payment');
+    } else {
+      toast({
+        title: "Empty Cart",
+        description: "Please add items to your cart before proceeding.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!isClient) {
-    // Render nothing or a loading skeleton on the server and during initial client render before hydration
-    return null; // Or a loading spinner, or basic empty cart structure
+    return null; 
   }
 
   if (hydratedItemCount === 0) {
@@ -102,7 +110,7 @@ export default function CartPage() {
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-card-foreground">Your Shopping Cart</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Review items in your cart and proceed to checkout. You have {hydratedItemCount} item(s).
+            Review items in your cart and proceed to payment. You have {hydratedItemCount} item(s).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -175,9 +183,9 @@ export default function CartPage() {
           <Button
             size="lg"
             className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
-            onClick={() => toast({ title: "Coming Soon!", description: "Checkout functionality is not yet implemented."})}
+            onClick={handleProceedToPayment}
           >
-            Proceed to Checkout
+            Pay / Proceed <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </CardFooter>
       </Card>
