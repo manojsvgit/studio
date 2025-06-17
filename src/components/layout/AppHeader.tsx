@@ -128,63 +128,54 @@ const AppHeader = () => {
   const [hydratedNotifications, setHydratedNotifications] = useState<Notification[]>([]);
   const [hydratedUnreadCount, setHydratedUnreadCount] = useState<number>(0);
   
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false); // Moved slightly earlier
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
-  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   const [activeWalletTab, setActiveWalletTab] = useState('overview');
 
-
-  // Tip State
   const [selectedTipCurrencyId, setSelectedTipCurrencyId] = useState<string | null>(null);
   const [tipAmount, setTipAmount] = useState('');
   const [recipientPhoneNumber, setRecipientPhoneNumber] = useState('');
   const [tipError, setTipError] = useState<string | null>(null);
 
-  // Buy Crypto State
   const [selectedCryptoToBuyId, setSelectedCryptoToBuyId] = useState<string | null>(null);
   const [buyAmountInFiat, setBuyAmountInFiat] = useState('');
   const [buyFiatCurrency, setBuyFiatCurrency] = useState('INR'); 
   const [buyError, setBuyError] = useState<string | null>(null);
 
-  // Wallet Settings State
   const [hideZeroBalances, setHideZeroBalances] = useState(false);
   const [displayCryptoInFiat, setDisplayCryptoInFiat] = useState(true);
   const [selectedFiatDisplayCurrency, setSelectedFiatDisplayCurrency] = useState('INR');
 
-  // Withdraw Crypto State
   const [selectedWithdrawCryptoId, setSelectedWithdrawCryptoId] = useState<string | null>(null);
   const [withdrawCryptoNetwork, setWithdrawCryptoNetwork] = useState<string>('');
   const [withdrawCryptoAmount, setWithdrawCryptoAmount] = useState('');
   const [withdrawCryptoAddress, setWithdrawCryptoAddress] = useState('');
   const [withdrawCryptoError, setWithdrawCryptoError] = useState<string | null>(null);
 
-  // Withdraw INR State
   const [withdrawINRAmount, setWithdrawINRAmount] = useState('');
   const [withdrawINRAccountDetails, setWithdrawINRAccountDetails] = useState('');
   const [withdrawINRError, setWithdrawINRError] = useState<string | null>(null);
 
-  // Deposit Crypto State
   const [selectedDepositCryptoId, setSelectedDepositCryptoId] = useState<string | null>(null);
   const [selectedDepositNetwork, setSelectedDepositNetwork] = useState<string>('');
 
-
-  const totalWalletBalanceINR = getTotalPortfolioValueINR();
-
   const walletCurrencies = useMemo(() => walletCurrenciesFromStore, [walletCurrenciesFromStore]);
-
-  const availableCryptoCurrenciesForTipOrWithdrawOrDeposit = useMemo(() => {
-    return walletCurrencies.filter(c => c.symbol !== 'INR');
-  }, [walletCurrencies]);
+  
+  const totalWalletBalanceINR = useMemo(() => getTotalPortfolioValueINR(), [getTotalPortfolioValueINR]);
 
   const cryptoCurrenciesForPurchase = useMemo(() => {
     return walletCurrencies.filter(c => c.symbol !== 'INR');
   }, [walletCurrencies]);
 
+  const availableCryptoCurrenciesForTipOrWithdrawOrDeposit = useMemo(() => {
+    return walletCurrencies.filter(c => c.symbol !== 'INR');
+  }, [walletCurrencies]);
+  
   const inrCurrency = useMemo(() => {
     return walletCurrencies.find(c => c.symbol === 'INR');
   }, [walletCurrencies]);
 
-
- useEffect(() => {
+  useEffect(() => {
     setIsClient(true);
 
     const syncCartCount = () => setHydratedCartItemCount(useCartStore.getState().getCartItemCount());
@@ -235,7 +226,7 @@ const AppHeader = () => {
     };
   }, []);
 
- useEffect(() => {
+  useEffect(() => {
     if (isClient && cryptoCurrenciesForPurchase.length > 0 && !selectedCryptoToBuyId) {
       const firstCryptoId = cryptoCurrenciesForPurchase[0].id;
       if (selectedCryptoToBuyId !== firstCryptoId) {
@@ -248,7 +239,7 @@ const AppHeader = () => {
     if (isClient && availableCryptoCurrenciesForTipOrWithdrawOrDeposit.length > 0 && !selectedDepositCryptoId) {
         setSelectedDepositCryptoId(availableCryptoCurrenciesForTipOrWithdrawOrDeposit[0].id);
     }
-    if (isClient && MOCK_CRYPTO_NETWORKS.length > 0 && !selectedDepositNetwork) {
+    if (isClient && MOCK_CRYPTO_NETWORKS.length > 0 && !selectedDepositNetwork && availableCryptoCurrenciesForTipOrWithdrawOrDeposit.length > 0) {
         setSelectedDepositNetwork(MOCK_CRYPTO_NETWORKS[0].name);
     }
   }, [isClient, availableCryptoCurrenciesForTipOrWithdrawOrDeposit, selectedDepositCryptoId, selectedDepositNetwork]);
@@ -509,7 +500,6 @@ const AppHeader = () => {
                       <ChevronDown className="h-4 w-4 opacity-70" />
                     </>
                   ) : (
-                    // Placeholder for left part
                     <div className="flex items-center gap-1.5 animate-pulse">
                       <span className="text-sm font-medium text-transparent bg-muted rounded-sm py-1 px-2">₹000.00</span>
                       <div className="h-4 w-4 bg-muted rounded-full" /> 
@@ -571,13 +561,6 @@ const AppHeader = () => {
                   </div>
 
                   <Card className="bg-secondary/30 border-border">
-                     <CardHeader className="p-3 pb-1">
-                        <div className="flex justify-between items-center font-semibold text-muted-foreground px-1 mb-1">
-                            <div className="text-xs">Currency</div>
-                            <div className="text-xs text-right">Balance</div>
-                        </div>
-                        <Separator className="bg-border"/>
-                      </CardHeader>
                     <CardContent className="p-0">
                       <ScrollArea className="h-[150px] md:h-[180px] px-2 py-1">
                         {filteredCurrencies.length === 0 ? (
