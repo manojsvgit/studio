@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import Image from 'next/image';
 import { 
   Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, 
   ShieldCheckIcon, Send, AlertTriangle, X, Euro, JapaneseYen, IndianRupee, DollarSign, House, 
@@ -62,7 +63,7 @@ const fiatDisplayOptions = [
   { value: 'VND', label: 'VND', textSymbol: '₫', color: 'text-red-400' },
 ];
 
-const MOCK_CRYPTO_WITHDRAW_NETWORKS = [
+const MOCK_CRYPTO_NETWORKS = [
   { id: 'eth', name: 'ETH (ERC20)' },
   { id: 'bsc', name: 'BSC (BEP20)' },
   { id: 'polygon', name: 'Polygon (Matic)' },
@@ -72,6 +73,9 @@ const MOCK_CRYPTO_MIN_WITHDRAWAL_INR = 215.20;
 const MOCK_CRYPTO_TRANSACTION_FEE_INR = 86.08;
 const MOCK_INR_MIN_WITHDRAWAL_INR = 500;
 const MOCK_INR_TRANSACTION_FEE_INR = 25;
+
+const MOCK_DEPOSIT_ADDRESS = '0x18076908861eeadf2311dcffd1e3b39a0dce0a29';
+const MOCK_DEPOSIT_QR_URL = 'https://placehold.co/150x150.png?text=QR+Code';
 
 
 const getCategoryIcon = (category?: Notification['category']) => {
@@ -96,7 +100,7 @@ const AppHeader = () => {
     getFilteredCurrencies,
     selectedCurrencyId,
     setSelectedCurrencyId,
-    currencies: walletCurrenciesFromStore, // Renamed to avoid conflict
+    currencies: walletCurrenciesFromStore, 
     getTotalPortfolioValueINR,
     deductCurrencyBalance,
     addCurrencyBalance,
@@ -153,13 +157,17 @@ const AppHeader = () => {
   const [withdrawINRAccountDetails, setWithdrawINRAccountDetails] = useState('');
   const [withdrawINRError, setWithdrawINRError] = useState<string | null>(null);
 
+  // Deposit Crypto State
+  const [selectedDepositCryptoId, setSelectedDepositCryptoId] = useState<string | null>(null);
+  const [selectedDepositNetwork, setSelectedDepositNetwork] = useState<string>('');
+
 
   const totalWalletBalanceINR = getTotalPortfolioValueINR();
 
   const walletCurrencies = useMemo(() => walletCurrenciesFromStore, [walletCurrenciesFromStore]);
 
-  const availableCryptoCurrenciesForTipOrWithdraw = useMemo(() => {
-    return walletCurrencies.filter(c => c.balance > 0 && c.symbol !== 'INR');
+  const availableCryptoCurrenciesForTipOrWithdrawOrDeposit = useMemo(() => {
+    return walletCurrencies.filter(c => c.symbol !== 'INR');
   }, [walletCurrencies]);
 
   const cryptoCurrenciesForPurchase = useMemo(() => {
@@ -171,7 +179,7 @@ const AppHeader = () => {
   }, [walletCurrencies]);
 
 
-  useEffect(() => {
+ useEffect(() => {
     setIsClient(true);
 
     const syncCartCount = () => setHydratedCartItemCount(useCartStore.getState().getCartItemCount());
@@ -219,14 +227,27 @@ const AppHeader = () => {
     }
   }, [isClient, cryptoCurrenciesForPurchase, selectedCryptoToBuyId]);
 
+  useEffect(() => {
+    if (isClient && availableCryptoCurrenciesForTipOrWithdrawOrDeposit.length > 0 && !selectedDepositCryptoId) {
+        setSelectedDepositCryptoId(availableCryptoCurrenciesForTipOrWithdrawOrDeposit[0].id);
+    }
+    if (isClient && MOCK_CRYPTO_NETWORKS.length > 0 && !selectedDepositNetwork) {
+        setSelectedDepositNetwork(MOCK_CRYPTO_NETWORKS[0].name);
+    }
+  }, [isClient, availableCryptoCurrenciesForTipOrWithdrawOrDeposit, selectedDepositCryptoId, selectedDepositNetwork]);
+
 
   const selectedTipCurrency = useMemo(() => {
-    return availableCryptoCurrenciesForTipOrWithdraw.find(c => c.id === selectedTipCurrencyId) || null;
-  }, [availableCryptoCurrenciesForTipOrWithdraw, selectedTipCurrencyId]);
+    return availableCryptoCurrenciesForTipOrWithdrawOrDeposit.find(c => c.id === selectedTipCurrencyId) || null;
+  }, [availableCryptoCurrenciesForTipOrWithdrawOrDeposit, selectedTipCurrencyId]);
 
   const selectedWithdrawCrypto = useMemo(() => {
-    return availableCryptoCurrenciesForTipOrWithdraw.find(c => c.id === selectedWithdrawCryptoId) || null;
-  }, [availableCryptoCurrenciesForTipOrWithdraw, selectedWithdrawCryptoId]);
+    return availableCryptoCurrenciesForTipOrWithdrawOrDeposit.find(c => c.id === selectedWithdrawCryptoId) || null;
+  }, [availableCryptoCurrenciesForTipOrWithdrawOrDeposit, selectedWithdrawCryptoId]);
+
+  const currentSelectedDepositCrypto = useMemo(() => {
+    return walletCurrencies.find(c => c.id === selectedDepositCryptoId);
+  }, [walletCurrencies, selectedDepositCryptoId]);
 
 
   const filteredCurrencies = getFilteredCurrencies();
@@ -429,6 +450,16 @@ const AppHeader = () => {
     !withdrawINRAccountDetails ||
     (inrCurrency && (parseFloat(withdrawINRAmount) + MOCK_INR_TRANSACTION_FEE_INR) > inrCurrency.balance) ||
     parseFloat(withdrawINRAmount) < MOCK_INR_MIN_WITHDRAWAL_INR;
+
+  const handleCopyAddress = () => {
+    navigator.clipboard.writeText(MOCK_DEPOSIT_ADDRESS)
+      .then(() => {
+        toast({ title: "Address Copied!", description: "Deposit address copied to clipboard." });
+      })
+      .catch(err => {
+        toast({ title: "Copy Failed", description: "Could not copy address.", variant: "destructive" });
+      });
+  };
 
 
   return (
@@ -689,7 +720,7 @@ const AppHeader = () => {
                           )}
                         </SelectTrigger>
                         <SelectContent className="bg-popover border-border">
-                          {availableCryptoCurrenciesForTipOrWithdraw.length > 0 ? availableCryptoCurrenciesForTipOrWithdraw.map(currency => (
+                          {availableCryptoCurrenciesForTipOrWithdrawOrDeposit.filter(c => c.balance > 0).length > 0 ? availableCryptoCurrenciesForTipOrWithdrawOrDeposit.filter(c => c.balance > 0).map(currency => (
                             <SelectItem key={currency.id} value={currency.id} className="hover:bg-secondary focus:bg-secondary">
                               <div className="flex items-center justify-between w-full">
                                 <div className="flex items-center gap-2">
@@ -803,7 +834,7 @@ const AppHeader = () => {
                                             ) : <SelectValue placeholder="Select currency" />}
                                         </SelectTrigger>
                                         <SelectContent className="bg-popover border-border">
-                                            {availableCryptoCurrenciesForTipOrWithdraw.map(c => (
+                                            {availableCryptoCurrenciesForTipOrWithdrawOrDeposit.filter(c => c.balance > 0).map(c => (
                                                 <SelectItem key={c.id} value={c.id} className="hover:bg-secondary focus:bg-secondary">
                                                     <div className="flex items-center gap-2 justify-between w-full">
                                                         <div className="flex items-center gap-2">
@@ -827,7 +858,7 @@ const AppHeader = () => {
                                             <SelectValue placeholder="Select network" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-popover border-border">
-                                            {MOCK_CRYPTO_WITHDRAW_NETWORKS.map(network => (
+                                            {MOCK_CRYPTO_NETWORKS.map(network => (
                                                 <SelectItem key={network.id} value={network.name} className="hover:bg-secondary focus:bg-secondary">{network.name}</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -933,16 +964,99 @@ const AppHeader = () => {
                     </Button>
                     <h4 className="text-md font-semibold text-card-foreground">Deposit</h4>
                 </div>
-                <div className="p-4">
-                  <Card className="bg-secondary/30 border-border shadow-none">
-                    <CardContent className="p-6 text-center text-muted-foreground">
-                      <CreditCard className="h-12 w-12 mx-auto mb-3 text-primary opacity-70" />
-                      <p className="text-sm">Deposit functionality is currently unavailable.</p>
-                      <p className="text-xs mt-1">Please check back later or contact support for assistance.</p>
-                    </CardContent>
-                  </Card>
-                </div>
-                <div className="p-4 pt-2">
+                 <Tabs defaultValue="crypto-deposit" className="w-full p-4 pt-0">
+                    <TabsList className="grid w-full grid-cols-2 mb-4 mt-4 bg-background">
+                        <TabsTrigger value="crypto-deposit">Crypto</TabsTrigger>
+                        <TabsTrigger value="local-currency-deposit">Local Currency</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="crypto-deposit">
+                        <Card className="bg-secondary/30 border-border shadow-none">
+                            <CardContent className="space-y-4 p-4">
+                                <div>
+                                    <Label htmlFor="deposit-crypto-currency" className="text-xs font-medium text-muted-foreground">Currency</Label>
+                                    <Select value={selectedDepositCryptoId || ''} onValueChange={setSelectedDepositCryptoId}>
+                                        <SelectTrigger id="deposit-crypto-currency" className="w-full mt-1 bg-input border-border h-11">
+                                             {isClient && currentSelectedDepositCrypto ? (
+                                                <div className="flex items-center gap-2">
+                                                    <CryptoCurrencyIcon symbol={currentSelectedDepositCrypto.symbol} className={`h-5 w-5 ${currentSelectedDepositCrypto.color || 'text-foreground'}`} />
+                                                    <span>{currentSelectedDepositCrypto.name} ({currentSelectedDepositCrypto.symbol})</span>
+                                                </div>
+                                            ) : <SelectValue placeholder="Select currency" />}
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-popover border-border">
+                                            {availableCryptoCurrenciesForTipOrWithdrawOrDeposit.map(c => (
+                                                <SelectItem key={c.id} value={c.id} className="hover:bg-secondary focus:bg-secondary">
+                                                    <div className="flex items-center gap-2">
+                                                        <CryptoCurrencyIcon symbol={c.symbol} className={`h-5 w-5 ${c.color || 'text-foreground'}`} />
+                                                        <div>{c.name} ({c.symbol})</div>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="deposit-crypto-network" className="text-xs font-medium text-muted-foreground">Network</Label>
+                                    <Select value={selectedDepositNetwork} onValueChange={setSelectedDepositNetwork}>
+                                        <SelectTrigger id="deposit-crypto-network" className="w-full mt-1 bg-input border-border h-11">
+                                            <SelectValue placeholder="Select network" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-popover border-border">
+                                            {MOCK_CRYPTO_NETWORKS.map(network => (
+                                                <SelectItem key={network.id} value={network.name} className="hover:bg-secondary focus:bg-secondary">{network.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="deposit-crypto-address" className="text-xs font-medium text-muted-foreground">Address</Label>
+                                     <div className="relative mt-1 flex items-center">
+                                        <Input 
+                                          id="deposit-crypto-address" 
+                                          type="text" 
+                                          value={MOCK_DEPOSIT_ADDRESS} 
+                                          readOnly 
+                                          className="bg-input border-border h-11 flex-grow pr-10 text-sm text-muted-foreground" 
+                                        />
+                                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-primary" onClick={handleCopyAddress}>
+                                          <ClipboardCopy className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-center justify-center my-4">
+                                  {isClient && (
+                                    <Image
+                                      src={MOCK_DEPOSIT_QR_URL}
+                                      alt="Deposit QR Code"
+                                      width={150}
+                                      height={150}
+                                      className="rounded-md border border-border"
+                                      data-ai-hint="qr code"
+                                    />
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground space-y-2 p-3 border border-dashed border-border rounded-md">
+                                    <p>Send only {currentSelectedDepositCrypto?.symbol || 'selected crypto'} to this address.</p>
+                                    <p>Ensure the network matches. Sending to the wrong network may result in loss of funds.</p>
+                                    <div className="flex justify-between items-center pt-2">
+                                      <span className="text-card-foreground">Credited after:</span>
+                                      <span className="font-semibold text-accent">2 Confirmations</span>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="local-currency-deposit">
+                         <Card className="bg-secondary/30 border-border shadow-none">
+                            <CardContent className="p-6 text-center text-muted-foreground">
+                                <CreditCard className="h-10 w-10 mx-auto mb-3 text-primary opacity-70" />
+                                <p className="text-sm">Details for depositing INR via Bank Transfer or UPI will appear here.</p>
+                                <p className="text-xs mt-1">This feature is currently under development.</p>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
+                 <div className="p-4 pt-2">
                     <Separator className="my-4 bg-border"/>
                     <div className="flex flex-col items-center text-center p-2">
                         {isClient ? <ShieldCheckIcon className="h-7 w-7 text-accent mb-1.5" /> : <div className="h-7 w-7 bg-muted rounded mb-1.5" />}
