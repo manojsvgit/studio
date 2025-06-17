@@ -4,33 +4,33 @@
 
 @layer base {
   :root {
-    --background: 210 19% 7%; /* #0f1419 */
-    --foreground: 0 0% 100%; /* #ffffff */
+    --background: 220 17% 10%; /* #14171c - Darker Slate Blue/Gray */
+    --foreground: 210 40% 98%; /* #f7f9fb - Off-white */
 
-    --card: 216 22% 14%; /* #212732 */
-    --card-foreground: 0 0% 100%; /* #ffffff */
+    --card: 220 17% 15%; /* #1f2329 - Slightly Lighter Dark Slate */
+    --card-foreground: 210 40% 98%; /* #f7f9fb */
 
-    --popover: 216 22% 14%; /* #212732 */
-    --popover-foreground: 0 0% 100%; /* #ffffff */
+    --popover: 220 17% 15%; /* #1f2329 */
+    --popover-foreground: 210 40% 98%; /* #f7f9fb */
 
-    --primary: 207 100% 28%; /* #004c91 */
-    --primary-foreground: 0 0% 100%; /* #ffffff */
+    --primary: 210 90% 50%; /* #1a73e8 - Vibrant Blue */
+    --primary-foreground: 0 0% 100%; /* #ffffff - White */
 
-    --secondary: 223 29% 11%; /* #1a1f2e */
-    --secondary-foreground: 215 14% 65%; /* #94a3b8 */
+    --secondary: 220 17% 20%; /* #2b3038 - A step lighter than card */
+    --secondary-foreground: 220 15% 65%; /* #909aab - Light Gray */
 
-    --muted: 223 29% 11%; /* Use bg-secondary as muted background */
-    --muted-foreground: 220 13% 47%; /* #64748b */
+    --muted: 220 17% 20%; /* #2b3038 - Same as secondary */
+    --muted-foreground: 220 10% 45%; /* #666e7a - Slightly Darker Gray */
 
-    --accent: 160 100% 50%; /* #00ffa3 */
-    --accent-foreground: 210 19% 7%; /* #0f1419 - text on accent */
+    --accent: 150 70% 50%; /* #2ecc71 - Modern Green */
+    --accent-foreground: 220 17% 10%; /* #14171c - Dark, for text on accent */
 
-    --destructive: 0 72% 51%; /* #ef4444 */
+    --destructive: 0 70% 55%; /* #f44336 - Vibrant Red */
     --destructive-foreground: 0 0% 100%; /* #ffffff */
 
-    --border: 215 20% 21%; /* #2a3441 */
-    --input: 223 29% 11%; /* #1a1f2e */
-    --ring: 207 100% 28%; /* #004c91 */
+    --border: 220 17% 25%; /* #343a43 - Subtle Dark Border */
+    --input: 220 17% 17%; /* #242830 - Darker Input Background */
+    --ring: 210 90% 55%; /* #3b82f6 - Matches new primary, brighter for focus */
     
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -39,15 +39,15 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
 
-    /* Sidebar specific colors, can be adjusted if needed or inherit from above */
-    --sidebar-background: 210 19% 7%; /* Match --background */
-    --sidebar-foreground: 0 0% 100%; /* Match --foreground */
-    --sidebar-primary: 207 100% 28%; /* Match --primary */
-    --sidebar-primary-foreground: 0 0% 100%; /* Match --primary-foreground */
-    --sidebar-accent: 160 100% 50%; /* Match --accent */
-    --sidebar-accent-foreground: 210 19% 7%; /* Match --accent-foreground */
-    --sidebar-border: 215 20% 21%; /* Match --border */
-    --sidebar-ring: 207 100% 28%; /* Match --ring */
+    /* Sidebar specific colors, updated to match the new theme */
+    --sidebar-background: 220 17% 10%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 90% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 150 70% 50%;
+    --sidebar-accent-foreground: 220 17% 10%;
+    --sidebar-border: 220 17% 25%;
+    --sidebar-ring: 210 90% 55%;
 
     /* Custom colors from proposal, if needed directly */
     --walmart-blue: 207 100% 28%;
@@ -59,4 +59,26 @@
   }
 
   /* Remove .dark scope to make dark theme default */
+}
+
+@layer utilities {
+  /* Custom scrollbar styles for WebKit browsers */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background) / 0.5);
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--secondary-foreground));
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
