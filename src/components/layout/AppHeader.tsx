@@ -29,7 +29,7 @@ import {
   ShieldCheckIcon, Send, AlertTriangle, X, Euro, JapaneseYen, IndianRupee, DollarSign, 
   MessageSquareWarning, Info, Gift, ShoppingBasket, CircleDot, Trash2, ChevronLeft, ClipboardCopy, CreditCard
 } from 'lucide-react';
-import WalletLogo from '@/components/icons/WalletLogo'; // Import the new WalletLogo
+import WalletLogo from '@/components/icons/WalletLogo';
 import { useWalletStore } from '@/stores/wallet-store';
 import { useCartStore } from '@/stores/cart-store';
 import { useNotificationStore } from '@/stores/notification-store';
@@ -120,7 +120,11 @@ const AppHeader = () => {
   const [isClient, setIsClient] = useState(false);
   
   const [hydratedCartItemCount, setHydratedCartItemCount] = useState<number>(0);
-  const [hydratedWalletDisplay, setHydratedWalletDisplay] = useState<{ iconSymbol: string, text: string, color?: string } | null>(null);
+  const [hydratedWalletDisplay, setHydratedWalletDisplay] = useState<{
+    balanceInrText: string;
+    selectedCurrencySymbol: string;
+    selectedCurrencyColor?: string;
+  } | null>(null);
   const [hydratedNotifications, setHydratedNotifications] = useState<Notification[]>([]);
   const [hydratedUnreadCount, setHydratedUnreadCount] = useState<number>(0);
   
@@ -186,24 +190,36 @@ const AppHeader = () => {
     const syncCartCount = () => setHydratedCartItemCount(useCartStore.getState().getCartItemCount());
     syncCartCount();
     const unsubCart = useCartStore.subscribe(syncCartCount);
-
-    const syncWalletDisplay = () => {
+    
+    const syncWalletData = () => {
       const storeState = useWalletStore.getState();
-      const currentActiveCurrency = storeState.currencies.find(c => c.id === storeState.selectedCurrencyId) ||
-                                   storeState.currencies.find(c => c.symbol === 'INR') ||
-                                   (storeState.currencies.length > 0 ? storeState.currencies[0] : null);
-      if (currentActiveCurrency) {
+      const selected = storeState.currencies.find(c => c.id === storeState.selectedCurrencyId);
+      
+      if (selected) {
         setHydratedWalletDisplay({
-          iconSymbol: currentActiveCurrency.symbol,
-          text: `₹${(currentActiveCurrency.balance * currentActiveCurrency.priceInINR).toFixed(2)}`,
-          color: currentActiveCurrency.color,
+          balanceInrText: `₹${(selected.balance * selected.priceInINR).toFixed(2)}`,
+          selectedCurrencySymbol: selected.symbol,
+          selectedCurrencyColor: selected.color,
         });
       } else {
-         setHydratedWalletDisplay({ iconSymbol: 'default', text: 'Wallet', color: 'text-primary-foreground' });
+        const inrOrDefault = storeState.currencies.find(c => c.symbol === 'INR') || storeState.currencies[0];
+        if (inrOrDefault) {
+             setHydratedWalletDisplay({
+                balanceInrText: `₹${(inrOrDefault.balance * inrOrDefault.priceInINR).toFixed(2)}`,
+                selectedCurrencySymbol: inrOrDefault.symbol,
+                selectedCurrencyColor: inrOrDefault.color,
+             });
+        } else {
+            setHydratedWalletDisplay({
+                balanceInrText: '₹-.--',
+                selectedCurrencySymbol: 'default',
+                selectedCurrencyColor: 'text-muted-foreground',
+            });
+        }
       }
     };
-    syncWalletDisplay();
-    const unsubWallet = useWalletStore.subscribe(syncWalletDisplay);
+    syncWalletData();
+    const unsubWallet = useWalletStore.subscribe(syncWalletData);
     
     const syncNotifications = () => {
         setHydratedNotifications(useNotificationStore.getState().getNotifications());
@@ -476,25 +492,36 @@ const AppHeader = () => {
         <DropdownMenu open={walletDropdownOpen} onOpenChange={setWalletDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="default"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[160px] flex items-center justify-between px-3"
+              variant="ghost"
+              className="p-0 h-10 flex items-center rounded-md shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-background"
+              aria-label="Open wallet menu"
             >
-              <div className="flex items-center overflow-hidden">
-                {isClient && hydratedWalletDisplay ? (
-                  <>
-                    <CryptoCurrencyIcon symbol={hydratedWalletDisplay.iconSymbol} className={`mr-2 h-5 w-5 flex-shrink-0 ${hydratedWalletDisplay.color || 'text-primary-foreground'}`} />
-                    <span className="truncate text-sm">
-                      {hydratedWalletDisplay.text}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    {isClient ? <WalletIcon className="mr-2 h-4 w-4" /> : <div className="mr-2 h-4 w-4 bg-muted rounded" />}
-                    <span className="truncate text-sm">Wallet</span>
-                  </>
-                )}
+              <div className="flex items-center h-full rounded-md overflow-hidden border border-border">
+                {/* Left Part */}
+                <div className="flex items-center gap-1.5 px-3 h-full bg-background text-foreground">
+                  {isClient && hydratedWalletDisplay ? (
+                    <>
+                      <span className="text-sm font-medium">{hydratedWalletDisplay.balanceInrText}</span>
+                      <CryptoCurrencyIcon
+                        symbol={hydratedWalletDisplay.selectedCurrencySymbol}
+                        className={cn("h-4 w-4", hydratedWalletDisplay.selectedCurrencyColor || 'text-foreground')}
+                      />
+                      <ChevronDown className="h-4 w-4 opacity-70" />
+                    </>
+                  ) : (
+                    // Placeholder for left part
+                    <div className="flex items-center gap-1.5 animate-pulse">
+                      <span className="text-sm font-medium text-transparent bg-muted rounded-sm py-1 px-2">₹000.00</span>
+                      <div className="h-4 w-4 bg-muted rounded-full" /> 
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </div>
+                  )}
+                </div>
+                {/* Right Part */}
+                <div className="px-4 h-full flex items-center bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                  <span className="text-sm font-medium">Wallet</span>
+                </div>
               </div>
-              {isClient ? <ChevronDown className="ml-2 h-4 w-4 opacity-80 flex-shrink-0" /> : <div className="ml-2 h-4 w-4 opacity-80 flex-shrink-0 bg-muted rounded" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-80 md:w-96 p-0 bg-card border-border shadow-xl" align="center">
