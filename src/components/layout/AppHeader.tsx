@@ -96,7 +96,7 @@ const AppHeader = () => {
     getFilteredCurrencies,
     selectedCurrencyId,
     setSelectedCurrencyId,
-    currencies: walletCurrencies,
+    currencies: walletCurrenciesFromStore, // Renamed to avoid conflict
     getTotalPortfolioValueINR,
     deductCurrencyBalance,
     addCurrencyBalance,
@@ -133,7 +133,7 @@ const AppHeader = () => {
   // Buy Crypto State
   const [selectedCryptoToBuyId, setSelectedCryptoToBuyId] = useState<string | null>(null);
   const [buyAmountInFiat, setBuyAmountInFiat] = useState('');
-  const [buyFiatCurrency, setBuyFiatCurrency] = useState('INR'); // Default to INR
+  const [buyFiatCurrency, setBuyFiatCurrency] = useState('INR'); 
   const [buyError, setBuyError] = useState<string | null>(null);
 
   // Wallet Settings State
@@ -155,6 +155,8 @@ const AppHeader = () => {
 
 
   const totalWalletBalanceINR = getTotalPortfolioValueINR();
+
+  const walletCurrencies = useMemo(() => walletCurrenciesFromStore, [walletCurrenciesFromStore]);
 
   const availableCryptoCurrenciesForTipOrWithdraw = useMemo(() => {
     return walletCurrencies.filter(c => c.balance > 0 && c.symbol !== 'INR');
@@ -211,7 +213,6 @@ const AppHeader = () => {
  useEffect(() => {
     if (isClient && cryptoCurrenciesForPurchase.length > 0 && !selectedCryptoToBuyId) {
       const firstCryptoId = cryptoCurrenciesForPurchase[0].id;
-      // Only update if it's truly different to avoid potential loops if this effect were more complex
       if (selectedCryptoToBuyId !== firstCryptoId) {
            setSelectedCryptoToBuyId(firstCryptoId);
       }
@@ -269,7 +270,6 @@ const AppHeader = () => {
     setSelectedTipCurrencyId(null);
     setTipAmount('');
     setRecipientPhoneNumber('');
-    // Do not close wallet dropdown here, user might want to do other actions.
   };
 
   const isTipButtonDisabled = !selectedTipCurrency || !tipAmount || parseFloat(tipAmount) <= 0 || !recipientPhoneNumber || (selectedTipCurrency && parseFloat(tipAmount) > selectedTipCurrency.balance);
@@ -295,7 +295,6 @@ const AppHeader = () => {
       return;
     }
 
-    // Assuming buyFiatCurrency is 'INR' for now, as it's the only option
     const cryptoAmountBought = amountFiat / cryptoToBuy.priceInINR;
     addCurrencyBalance(cryptoToBuy.id, cryptoAmountBought);
 
@@ -305,7 +304,6 @@ const AppHeader = () => {
     });
 
     setBuyAmountInFiat('');
-    // Do not close wallet dropdown.
   };
 
   const isBuyButtonDisabled = !selectedCryptoToBuyId || !buyAmountInFiat || parseFloat(buyAmountInFiat) <= 0;
@@ -484,11 +482,10 @@ const AppHeader = () => {
                  </Button>
             </div>
             <Tabs value={activeWalletTab} onValueChange={setActiveWalletTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5 border-b border-border rounded-none h-auto p-0">
+              <TabsList className="grid w-full grid-cols-4 border-b border-border rounded-none h-auto p-0">
                 <TabsTrigger value="overview" className="text-xs py-2.5 data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:border-b-2 rounded-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-transparent data-[state=active]:shadow-none">Overview</TabsTrigger>
                 <TabsTrigger value="buy-crypto" className="text-xs py-2.5 data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:border-b-2 rounded-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-transparent data-[state=active]:shadow-none">Buy</TabsTrigger>
                 <TabsTrigger value="tip" className="text-xs py-2.5 data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:border-b-2 rounded-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-transparent data-[state=active]:shadow-none">Tip</TabsTrigger>
-                <TabsTrigger value="withdraw" className="text-xs py-2.5 data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:border-b-2 rounded-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-transparent data-[state=active]:shadow-none">Withdraw</TabsTrigger>
                 <TabsTrigger value="settings-tab" className="text-xs py-2.5 data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:border-b-2 rounded-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-transparent data-[state=active]:shadow-none">Settings</TabsTrigger>
               </TabsList>
 
@@ -1135,6 +1132,4 @@ const AppHeader = () => {
 };
 
 export default AppHeader;
-
-
     
