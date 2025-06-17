@@ -26,9 +26,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Image from 'next/image';
 import { 
   Bell, UserCircle, Wallet as WalletIcon, Search, Settings, ChevronDown, LogOut, ShoppingCartIcon, 
-  ShieldCheckIcon, Send, AlertTriangle, X, Euro, JapaneseYen, IndianRupee, DollarSign, House, 
+  ShieldCheckIcon, Send, AlertTriangle, X, Euro, JapaneseYen, IndianRupee, DollarSign, 
   MessageSquareWarning, Info, Gift, ShoppingBasket, CircleDot, Trash2, ChevronLeft, ClipboardCopy, CreditCard
 } from 'lucide-react';
+import WalletLogo from '@/components/icons/WalletLogo'; // Import the new WalletLogo
 import { useWalletStore } from '@/stores/wallet-store';
 import { useCartStore } from '@/stores/cart-store';
 import { useNotificationStore } from '@/stores/notification-store';
@@ -466,8 +467,8 @@ const AppHeader = () => {
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
       <div className="flex items-center gap-2">
          <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-primary">
-            {isClient ? <House className="h-6 w-6" /> : <div className="h-6 w-6 bg-muted rounded" />}
-            <span className="hidden sm:inline-block">WalmartChain</span>
+            {isClient ? <WalletLogo className="h-7 w-7" /> : <div className="h-7 w-7 bg-muted rounded" />}
+            <span className="hidden sm:inline-block font-bold">WalmartChain</span>
         </Link>
       </div>
 
